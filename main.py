@@ -10,7 +10,7 @@ from src.neutral_generation.generate import generate_neutral_summary
 
 def run_pipeline(topic: str):
     print(f"Fetching articles for topic: {topic}")
-    news_data = fetch_news(topic=topic, page_size=5)
+    news_data = fetch_news(topic=topic, page_size=10)
 
     saved_path = save_articles(news_data, topic)
     print(f"Raw articles saved to: {saved_path}")
@@ -27,10 +27,22 @@ def run_pipeline(topic: str):
 
         source_summaries.append({
             "source": source_name,
+            "title": article.get("title", ""),
+            "url": article.get("url", ""),
             "summary": summary
         })
 
+    print("\nFetched relevant articles:")
+    for i, item in enumerate(source_summaries, start=1):
+        print(f"{i}. {item['source']} - {item['title']}")
+
     comparison_result = compare_summaries(source_summaries)
+
+    print("\nSimilar article pairs (based on content):")
+    for i, j, score in comparison_result["similar_pairs"]:
+        print(f"{i+1} and {j+1} → similarity: {score:.2f}")
+
+    # THEN generate neutral summary
     neutral_summary = generate_neutral_summary(source_summaries)
 
     output_dir = Path("outputs/summaries")
@@ -53,4 +65,5 @@ def run_pipeline(topic: str):
 
 
 if __name__ == "__main__":
-    run_pipeline("artificial intelligence")
+    topic = input("Enter news topic: ")
+    run_pipeline(topic)

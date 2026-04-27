@@ -1,11 +1,14 @@
+from src.summarization.summarize import summarize_article
+
+
 def generate_neutral_summary(summaries: list[dict]) -> str:
     if not summaries:
-        return ""
+        return "No summaries available."
 
-    combined = []
-    for item in summaries:
-        source = item.get("source", "Unknown")
-        summary = item.get("summary", "")
-        combined.append(f"{source}: {summary}")
+    # Combine only summaries (NO PROMPT TEXT)
+    combined_text = " ".join([item["summary"] for item in summaries])
 
-    return "\n".join(combined)
+    # Just summarize combined content
+    neutral_summary = summarize_article(combined_text)
+
+    return neutral_summary
