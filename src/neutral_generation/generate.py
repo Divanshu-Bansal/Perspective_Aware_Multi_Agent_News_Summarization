@@ -59,8 +59,19 @@ def generate_neutral_summary(
         similarity_method = comparison_result.get("similarity_method", "tf-idf")
         perspective_diversity = comparison_result.get("perspective_diversity", 1)
 
-    source_texts = [item.get("summary", "") for item in valid_summaries[:5]]
-    combined_text = " ".join(source_texts).replace("\n", " ")[:2000]
+    # Sort by relevance score so highest quality articles dominate the summary
+    valid_summaries_sorted = sorted(
+        valid_summaries,
+        key=lambda x: x.get("relevance_score", 0),
+        reverse=True
+    )
+    # Give each source equal weight — truncate each summary to 300 chars
+    # so no single article dominates the final BART pass
+    source_texts = []
+    for item in valid_summaries_sorted[:5]:
+        summary = item.get("summary", "").replace("\n", " ").strip()
+        source_texts.append(summary[:300])
+    combined_text = " ".join(source_texts)[:2500]
 
     if len(combined_text.split()) > 60:
         neutral_summary = summarize_article(combined_text)

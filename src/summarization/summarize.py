@@ -40,8 +40,8 @@ def summarize_article(text: str) -> str:
 
         result = summarizer(
             chunk,
-            max_length=100,
-            min_length=30,
+            max_length=130,
+            min_length=40,
             do_sample=False
         )
 

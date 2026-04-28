@@ -7,4 +7,6 @@ pandas
 numpy
 scikit-learn
 torch
+clearml
+streamlit
 matplotlib

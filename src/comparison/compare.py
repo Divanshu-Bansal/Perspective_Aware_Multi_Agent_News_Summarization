@@ -1,5 +1,3 @@
-#src/comparison/compare.py
-
 import re
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
@@ -36,7 +34,7 @@ def clean_for_theme_extraction(text: str) -> str:
     return text
 
 
-def compare_summaries(source_summaries: list[dict]) -> dict:
+def compare_summaries(source_summaries: list[dict], topic: str = "") -> dict:
     if not source_summaries:
         return {"similar_pairs": [], "common_themes": [], "perspectives": []}
 
@@ -65,7 +63,13 @@ def compare_summaries(source_summaries: list[dict]) -> dict:
         "would", "could", "should", "just", "including",
         "company", "companies", "percent", "million", "billion",
     }
-    stop_words = list(ENGLISH_STOP_WORDS.union(custom_stop_words))
+
+    # Extract topic words and add them to stop words
+    # This prevents the topic itself from appearing as a "theme"
+    topic_stop_words = set(topic.lower().split()) if topic else set()
+
+    # Merge all stop word lists together
+    stop_words = list(ENGLISH_STOP_WORDS.union(custom_stop_words).union(topic_stop_words))
 
     vectorizer = TfidfVectorizer(
         stop_words=stop_words,
@@ -93,6 +97,8 @@ def compare_summaries(source_summaries: list[dict]) -> dict:
         "html", "chars", "continue", "according", "reported",
         "people", "years", "year", "said", "says", "just",
         "thing", "things", "company", "companies",
+        "quarter", "results", "opened", "first", "second",
+        "third", "fourth", "percent", "billion", "million",
     }
 
     common_themes = []
@@ -103,6 +109,8 @@ def compare_summaries(source_summaries: list[dict]) -> dict:
             and not theme.isnumeric()
             and theme not in noise_words
             and not any(token in noise_words for token in theme.split())
+            # Also skip any theme that contains a topic word
+            and not any(token in topic_stop_words for token in theme.split())
         ):
             common_themes.append(theme)
         if len(common_themes) == 8:
