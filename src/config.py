@@ -3,10 +3,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-NEWS_API_KEY     = os.getenv("NEWS_API_KEY")
-GUARDIAN_API_KEY = os.getenv("GUARDIAN_API_KEY")
-GNEWS_API_KEY    = os.getenv("GNEWS_API_KEY")
+def _get(key: str) -> str:
+    """Get config value from environment or Streamlit secrets."""
+    value = os.getenv(key)
+    if not value:
+        try:
+            import streamlit as st
+            value = st.secrets.get(key, "")
+        except Exception:
+            pass
+    return value or ""
 
-CLEARML_API_ACCESS_KEY = os.getenv("CLEARML_API_ACCESS_KEY")
-CLEARML_API_SECRET_KEY = os.getenv("CLEARML_API_SECRET_KEY")
-CLEARML_API_HOST       = os.getenv("CLEARML_API_HOST", "https://api.clear.ml")
+NEWS_API_KEY           = _get("NEWS_API_KEY")
+GUARDIAN_API_KEY       = _get("GUARDIAN_API_KEY")
+GNEWS_API_KEY          = _get("GNEWS_API_KEY")
+CLEARML_API_ACCESS_KEY = _get("CLEARML_API_ACCESS_KEY")
+CLEARML_API_SECRET_KEY = _get("CLEARML_API_SECRET_KEY")
+CLEARML_API_HOST       = _get("CLEARML_API_HOST") or "https://api.clear.ml"
