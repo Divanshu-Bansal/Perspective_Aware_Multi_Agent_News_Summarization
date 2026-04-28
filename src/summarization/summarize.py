@@ -17,7 +17,7 @@ def get_summarizer():
                 "summarization",
                 model=model,
                 framework="pt",
-                device=-1,  # force CPU
+                device=-1,
                 torch_dtype=torch.float32,
             )
         else:
@@ -31,7 +31,7 @@ def get_summarizer():
     return _summarizer
 
 
-def chunk_text(text: str, max_words: int = 300):
+def chunk_text(text: str, max_words: int = 400):
     words = text.split()
     for i in range(0, len(words), max_words):
         yield " ".join(words[i:i + max_words])
@@ -49,8 +49,8 @@ def summarize_article(text: str) -> str:
         if len(chunk.split()) < 40:
             continue
         word_count = len(chunk.split())
-        max_len = min(80, max(30, word_count // 2))
-        min_len = min(20, max_len - 10)
+        max_len = min(130, max(30, word_count // 2))
+        min_len = min(30, max_len - 10)
         try:
             result = summarizer(
                 chunk,
@@ -62,5 +62,5 @@ def summarize_article(text: str) -> str:
             summaries.append(result[0]["summary_text"])
         except Exception as e:
             print(f"Summarization error: {e}")
-            summaries.append(chunk[:200])
+            summaries.append(chunk[:300])
     return " ".join(summaries)

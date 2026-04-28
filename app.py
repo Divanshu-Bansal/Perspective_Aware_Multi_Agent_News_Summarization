@@ -2,7 +2,6 @@ import streamlit as st
 import os
 import re
 import json
-import time
 import plotly.express as px
 import pandas as pd
 from pathlib import Path
@@ -62,20 +61,6 @@ st.markdown("""
         color: #ccc;
         line-height: 1.5;
     }
-    .relevance-bar {
-        height: 6px;
-        border-radius: 3px;
-        background: linear-gradient(90deg, #4ade80, #22d3ee);
-        margin-top: 0.5rem;
-    }
-    .perspective-badge {
-        display: inline-block;
-        padding: 2px 10px;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        margin-top: 0.4rem;
-    }
     .neutral-summary-box {
         background: #0f172a;
         border-left: 4px solid #4ade80;
@@ -84,6 +69,7 @@ st.markdown("""
         font-size: 1.05rem;
         line-height: 1.8;
         margin-top: 1rem;
+        color: #e2e8f0;
     }
     .theme-chip {
         display: inline-block;
@@ -100,25 +86,10 @@ st.markdown("""
         color: #4ade80;
         margin: 1rem 0 0.5rem;
     }
-    .metric-box {
-        background: #1e1e2e;
-        border-radius: 10px;
-        padding: 1rem;
-        text-align: center;
-        border: 1px solid #333;
-    }
-    .metric-value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #4ade80;
-    }
-    .metric-label {
-        font-size: 0.8rem;
-        color: #aaa;
-    }
 </style>
 """, unsafe_allow_html=True)
 
+# ── Constants ─────────────────────────────────────────────────────────────────
 PERSPECTIVE_COLORS = {
     "Economic":      "#f59e0b",
     "Political":     "#ef4444",
@@ -140,6 +111,7 @@ EXCLUDE_SOURCES = [
 ]
 
 
+# ── Helper functions ──────────────────────────────────────────────────────────
 def is_topically_relevant(text: str, topic: str, threshold: float = 0.15) -> bool:
     topic_words = [w for w in topic.lower().split() if len(w) > 2]
     if not topic_words:
@@ -163,36 +135,99 @@ def relevance_bar_html(score: float) -> str:
 
 def perspective_badge_html(perspective: str) -> str:
     color = PERSPECTIVE_COLORS.get(perspective, "#6b7280")
-    return f'<span style="background:{color}22;color:{color};border:1px solid {color}55;' \
-           f'border-radius:20px;padding:2px 10px;font-size:0.75rem;font-weight:600;">' \
-           f'{perspective}</span>'
+    return (
+        f'<span style="background:{color}22;color:{color};'
+        f'border:1px solid {color}55;border-radius:20px;'
+        f'padding:2px 10px;font-size:0.75rem;font-weight:600;">'
+        f'{perspective}</span>'
+    )
 
 
-def render_article_card(item: dict, show_summary: bool = True):
-    source   = item.get("source", "Unknown")
-    title    = item.get("title", "")
-    summary  = item.get("summary", "")
-    score    = item.get("relevance_score", 0)
-    url      = item.get("url", "")
-    api      = item.get("api", "")
-    persp    = item.get("perspective", "General")
+def extract_summary_text(neutral_summary: str) -> str:
+    """
+    Extract just the clean summary paragraph from generate.py output.
+    Looks for text between the Topic: line and the first section divider.
+    """
+    lines = neutral_summary.strip().split("\n")
+    capture = False
+    collected = []
 
-    title_html = f'<a href="{url}" target="_blank" style="color:white;text-decoration:none;">{title}</a>' \
-                 if url else title
+    for line in lines:
+        line = line.strip()
 
-    summary_html = f'<div class="article-summary">{summary}</div>' if show_summary and summary else ""
+        # Start capturing after Topic: line
+        if line.startswith("Topic:"):
+            capture = True
+            continue
 
-    st.markdown(f"""
+        # Stop at next section header
+        if capture and (
+            re.match(r"^[=\-\─]{5,}$", line) or
+            line.upper().startswith("KEY THEMES") or
+            line.upper().startswith("PERSPECTIVES") or
+            line.upper().startswith("SOURCE CONTRIB") or
+            line.upper().startswith("NEUTRAL SUMMARY")
+        ):
+            break
+
+        # Collect meaningful lines only
+        if capture and line and len(line.split()) >= 5:
+            collected.append(line)
+
+    summary_text = " ".join(collected[:3]).strip()
+
+    # Fallback — find first long sentence in the output
+    if not summary_text:
+        for line in lines:
+            line = line.strip()
+            if (
+                len(line.split()) >= 8
+                and not re.match(r"^[=\-\─•\[\|]+", line)
+                and not any(kw in line.lower() for kw in [
+                    "topic:", "theme", "perspective", "source", "relevance",
+                    "similarity", "http", "www", "diversity"
+                ])
+            ):
+                summary_text = line
+                break
+
+    return summary_text or "Summary could not be extracted. Please check the full report."
+
+
+def article_card_html(
+    source: str,
+    api: str,
+    title: str,
+    url: str,
+    summary: str,
+    score: float,
+    perspective: str = "",
+    summarizing: bool = False,
+) -> str:
+    """Build a consistent article card HTML string."""
+    title_html = (
+        f'<a href="{url}" target="_blank" style="color:white;text-decoration:none;">{title}</a>'
+        if url else title
+    )
+    summary_html = (
+        '<div class="article-summary" style="color:#666;font-style:italic;">Summarizing...</div>'
+        if summarizing
+        else f'<div class="article-summary">{summary}</div>'
+    )
+    badge_html = perspective_badge_html(perspective) if perspective and not summarizing else ""
+
+    return f"""
     <div class="article-card">
         <div class="article-source">{source} &nbsp;·&nbsp; {api}</div>
         <div class="article-title">{title_html}</div>
         {summary_html}
         {relevance_bar_html(score)}
-        {perspective_badge_html(persp)}
+        {badge_html}
     </div>
-    """, unsafe_allow_html=True)
+    """
 
 
+# ── Main pipeline ─────────────────────────────────────────────────────────────
 def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
     """Main pipeline with progressive streaming UI updates."""
 
@@ -201,9 +236,10 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
     log_pipeline_config(task, topic, page_size, max_articles)
 
     # ── Step 1: Fetch ─────────────────────────────────────────────────────────
-    st.markdown('<div class="step-header">Step 1 — Querying news sources...</div>',
-                unsafe_allow_html=True)
-
+    st.markdown(
+        '<div class="step-header">Step 1 — Querying news sources...</div>',
+        unsafe_allow_html=True
+    )
     fetch_status = st.empty()
     fetch_status.info("Querying NewsAPI, The Guardian and GNews in parallel...")
 
@@ -231,26 +267,22 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
         f"Found {total} articles across 3 sources → {len(articles)} passed relevance filter"
     )
 
-    # Metrics row
     col1, col2, col3, col4 = st.columns(4)
-    newsapi_n  = sum(1 for a in articles if a.get("api") == "NewsAPI")
-    guardian_n = sum(1 for a in articles if a.get("api") == "Guardian")
-    gnews_n    = sum(1 for a in articles if a.get("api") == "GNews")
-
-    col1.metric("Total fetched",    total)
-    col2.metric("NewsAPI",          newsapi_n)
-    col3.metric("The Guardian",     guardian_n)
-    col4.metric("GNews",            gnews_n)
-
+    col1.metric("Total fetched",  total)
+    col2.metric("NewsAPI",        sum(1 for a in articles if a.get("api") == "NewsAPI"))
+    col3.metric("The Guardian",   sum(1 for a in articles if a.get("api") == "Guardian"))
+    col4.metric("GNews",          sum(1 for a in articles if a.get("api") == "GNews"))
     st.divider()
 
-    # ── Step 2: Filter + Summarise (progressive) ──────────────────────────────
-    st.markdown('<div class="step-header">Step 2 — Reading and summarizing articles...</div>',
-                unsafe_allow_html=True)
+    # ── Step 2: Filter + Summarise ────────────────────────────────────────────
+    st.markdown(
+        '<div class="step-header">Step 2 — Reading and summarizing articles...</div>',
+        unsafe_allow_html=True
+    )
 
-    source_summaries = []
-    seen_sources     = set()
-    skipped          = 0
+    source_summaries     = []
+    seen_sources         = set()
+    skipped              = 0
     article_placeholders = []
 
     for article in articles:
@@ -262,6 +294,7 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
         cleaned_text = clean_text(content)
         lower_text   = cleaned_text.lower()
 
+        # Filtering gates
         if any(word in lower_text for word in EXCLUDE_KEYWORDS):
             skipped += 1
             continue
@@ -278,25 +311,29 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
             continue
         seen_sources.add(source_name)
 
-        # Show article card immediately (without summary yet)
+        # Show placeholder card while summarizing
         placeholder = st.empty()
-        placeholder.markdown(f"""
-        <div class="article-card">
-            <div class="article-source">{source_name} &nbsp;·&nbsp; {article.get('api','')}</div>
-            <div class="article-title">{article.get('title','')}</div>
-            <div class="article-summary" style="color:#666;font-style:italic;">
-                Summarizing...
-            </div>
-            {relevance_bar_html(article.get('_relevance_score', 0))}
-        </div>
-        """, unsafe_allow_html=True)
+        placeholder.markdown(
+            article_card_html(
+                source=source_name,
+                api=article.get("api", ""),
+                title=article.get("title", ""),
+                url=article.get("url", ""),
+                summary="",
+                score=article.get("_relevance_score", 0),
+                summarizing=True,
+            ),
+            unsafe_allow_html=True,
+        )
 
         # Summarise
         summary = summarize_article(cleaned_text)
-        # Free memory after each summarization on cloud
+
+        # Free memory on cloud
         if os.getenv("IS_STREAMLIT_CLOUD") == "true":
             import gc
             gc.collect()
+
         if not summary:
             placeholder.empty()
             continue
@@ -308,23 +345,24 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
             "summary":         summary,
             "relevance_score": article.get("_relevance_score", 0.0),
             "api":             article.get("api", "Unknown"),
+            "perspective":     "",
         }
         source_summaries.append(item)
         article_placeholders.append((placeholder, item))
 
-        # Update card with real summary
-        placeholder.markdown(f"""
-        <div class="article-card">
-            <div class="article-source">{source_name} &nbsp;·&nbsp; {article.get('api','')}</div>
-            <div class="article-title">
-                <a href="{item['url']}" target="_blank" style="color:white;text-decoration:none;">
-                    {item['title']}
-                </a>
-            </div>
-            <div class="article-summary">{summary}</div>
-            {relevance_bar_html(item['relevance_score'])}
-        </div>
-        """, unsafe_allow_html=True)
+        # Update card with summary (no badge yet — added in Step 3)
+        placeholder.markdown(
+            article_card_html(
+                source=item["source"],
+                api=item["api"],
+                title=item["title"],
+                url=item["url"],
+                summary=summary,
+                score=item["relevance_score"],
+                summarizing=False,
+            ),
+            unsafe_allow_html=True,
+        )
 
     if not source_summaries:
         st.error("No relevant articles found after filtering. Try a broader topic.")
@@ -336,8 +374,10 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
     st.divider()
 
     # ── Step 3: Comparison ────────────────────────────────────────────────────
-    st.markdown('<div class="step-header">Step 3 — Comparing perspectives...</div>',
-                unsafe_allow_html=True)
+    st.markdown(
+        '<div class="step-header">Step 3 — Comparing perspectives...</div>',
+        unsafe_allow_html=True
+    )
 
     comparison_result = compare_summaries(source_summaries, topic=topic)
     log_comparison_metrics(task, comparison_result)
@@ -346,28 +386,28 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
     common_themes = comparison_result.get("common_themes", [])
     diversity     = comparison_result.get("perspective_diversity", 0)
 
-    # Update article cards with perspective badges
+    # Update all article cards with perspective badges
     for placeholder, item in article_placeholders:
         persp = next(
             (p["perspective"] for p in perspectives if p["source"] == item["source"]),
             "General"
         )
         item["perspective"] = persp
-        placeholder.markdown(f"""
-        <div class="article-card">
-            <div class="article-source">{item['source']} &nbsp;·&nbsp; {item['api']}</div>
-            <div class="article-title">
-                <a href="{item['url']}" target="_blank" style="color:white;text-decoration:none;">
-                    {item['title']}
-                </a>
-            </div>
-            <div class="article-summary">{item['summary']}</div>
-            {relevance_bar_html(item['relevance_score'])}
-            {perspective_badge_html(persp)}
-        </div>
-        """, unsafe_allow_html=True)
+        placeholder.markdown(
+            article_card_html(
+                source=item["source"],
+                api=item["api"],
+                title=item["title"],
+                url=item["url"],
+                summary=item["summary"],
+                score=item["relevance_score"],
+                perspective=persp,
+                summarizing=False,
+            ),
+            unsafe_allow_html=True,
+        )
 
-    # Perspective chart + themes side by side
+    # Perspective chart + themes
     col_chart, col_themes = st.columns([1, 1])
 
     with col_chart:
@@ -397,6 +437,7 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
                 margin=dict(t=20, b=20),
             )
             st.plotly_chart(fig, use_container_width=True)
+
         st.metric("Perspective diversity", f"{diversity} unique viewpoints")
 
     with col_themes:
@@ -420,8 +461,10 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
     st.divider()
 
     # ── Step 4: Neutral summary ───────────────────────────────────────────────
-    st.markdown('<div class="step-header">Step 4 — Generating neutral summary...</div>',
-                unsafe_allow_html=True)
+    st.markdown(
+        '<div class="step-header">Step 4 — Generating neutral summary...</div>',
+        unsafe_allow_html=True
+    )
 
     summary_placeholder = st.empty()
     summary_placeholder.info("Combining perspectives into a neutral summary...")
@@ -431,77 +474,37 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
     )
     log_final_summary(task, neutral_summary, topic)
 
-    # TODO
-    # # Extract just the summary text for display
-    # lines = neutral_summary.strip().split("\n")
-    # summary_text = ""
-    # for line in lines:
-    #     line = line.strip()
-    #     if line and not line.startswith("=") and not line.startswith("-") \
-    #             and not line.startswith("NEUTRAL") and not line.startswith("Topic:") \
-    #             and not line.startswith("KEY") and not line.startswith("•") \
-    #             and not line.startswith("PERSP") and not line.startswith("[") \
-    #             and not line.startswith("SOURCE") and not line.startswith("Relevance") \
-    #             and not line.startswith("URL") and not line.startswith("Perspective div") \
-    #             and not line.startswith("Similarity"):
-    #         summary_text += line + " "
+    # Extract clean summary text
+    summary_text = extract_summary_text(neutral_summary)
 
+    summary_placeholder.markdown(
+        f'<div class="neutral-summary-box">{summary_text}</div>',
+        unsafe_allow_html=True,
+    )
 
-    lines = neutral_summary.strip().split("\n")
-    clean_lines = []
-
-    for line in lines:
-        line = line.strip()
-
-        # skip empty
-        if not line:
-            continue
-
-        # skip separators and metadata
-        if re.match(r"^[=\-\─]+$", line):
-            continue
-        if any(keyword in line.lower() for keyword in [
-            "topic:", "key themes", "perspectives", "source", "relevance",
-            "similarity", "diversity", "http", "www"
-        ]):
-            continue
-
-        # skip lines that look like titles (too short or weird formatting)
-        if len(line.split()) < 5:
-            continue
-
-        clean_lines.append(line)
-
-    # Take only first 2–3 meaningful lines
-    summary_text = " ".join(clean_lines[:3])
-
-    summary_placeholder.markdown(f"""
-    <div class="neutral-summary-box">
-        {summary_text.strip()}
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Save output
+    # ── Save + Download ───────────────────────────────────────────────────────
     output_dir  = Path("outputs/summaries")
     output_dir.mkdir(parents=True, exist_ok=True)
     output_file = output_dir / "latest_summary.json"
+
+    final_output = {
+        "topic":            topic,
+        "articles_found":   len(source_summaries),
+        "source_summaries": source_summaries,
+        "comparison":       comparison_result,
+        "neutral_summary":  neutral_summary,
+    }
+
     with open(output_file, "w", encoding="utf-8") as f:
-        json.dump({
-            "topic":            topic,
-            "articles_found":   len(source_summaries),
-            "source_summaries": source_summaries,
-            "comparison":       comparison_result,
-            "neutral_summary":  neutral_summary,
-        }, f, indent=2)
+        json.dump(final_output, f, indent=2)
 
     close_task(task)
 
-    # Download button
     st.divider()
     st.download_button(
         label="Download full report (JSON)",
         data=open(output_file).read(),
-        file_name=f"summary_{topic.replace(' ','_')}.json",
+        file_name=f"summary_{topic.replace(' ', '_')}.json",
         mime="application/json",
     )
 
@@ -509,9 +512,10 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## Settings")
-    is_cloud = os.getenv("IS_STREAMLIT_CLOUD") == "true"
+    is_cloud     = os.getenv("IS_STREAMLIT_CLOUD") == "true"
     page_size    = st.slider("Articles to fetch per source", 5, 20, 5 if is_cloud else 10)
     max_articles = st.slider("Max articles to analyse",      3, 10, 4 if is_cloud else 8)
+
     st.divider()
     st.markdown("### Example topics")
     examples = [
@@ -531,10 +535,14 @@ with st.sidebar:
 
 
 # ── Main UI ───────────────────────────────────────────────────────────────────
-st.markdown('<div class="main-title">🗞️ Perspective-Aware News Summarizer</div>',
-            unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Multi-source · Bias-aware · Transformer-powered</div>',
-            unsafe_allow_html=True)
+st.markdown(
+    '<div class="main-title">🗞️ Perspective-Aware News Summarizer</div>',
+    unsafe_allow_html=True
+)
+st.markdown(
+    '<div class="subtitle">Multi-source · Bias-aware · Transformer-powered</div>',
+    unsafe_allow_html=True
+)
 
 topic_input = st.text_input(
     "Enter a news topic",
