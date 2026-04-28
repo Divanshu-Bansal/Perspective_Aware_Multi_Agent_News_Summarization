@@ -3,10 +3,10 @@ python-dotenv
 transformers==4.36.2
 tokenizers==0.15.2
 huggingface-hub==0.20.3
-pandas
 numpy
 scikit-learn
 torch
 clearml
 streamlit
-matplotlib
+plotly
+pandas
