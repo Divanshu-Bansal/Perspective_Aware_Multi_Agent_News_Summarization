@@ -365,7 +365,11 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
         )
 
     if not source_summaries:
-        st.error("No relevant articles found after filtering. Try a broader topic.")
+        st.error(
+            f"No high-quality articles found for '{topic}'. "
+            f"Try a broader or more specific topic. "
+            f"Example: instead of 'IT job market in Australia' try 'Australia tech jobs 2025'."
+        )
         close_task(task)
         return
 

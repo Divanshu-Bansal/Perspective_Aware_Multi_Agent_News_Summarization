@@ -193,7 +193,7 @@ def fetch_news(topic: str, page_size: int = 20) -> dict:
     all_articles.sort(key=lambda a: a["_relevance_score"], reverse=True)
 
     # Filter out very low relevance
-    filtered = [a for a in all_articles if a["_relevance_score"] >= 0.1]
+    filtered = [a for a in all_articles if a["_relevance_score"] >= 0.25]
     print(f"Articles passing relevance threshold: {len(filtered)}")
 
     return {"articles": filtered, "total_fetched": len(all_articles)}

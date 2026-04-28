@@ -28,6 +28,8 @@ EXCLUDE_KEYWORDS = [
 EXCLUDE_SOURCES = [
     "yahoo entertainment", "tmz", "people", "e! news",
     "entertainment weekly", "variety", "deadline",
+    "readtrung.com", "smashingapps.com", "cryptoprowl.com",
+    "leadershipinseo.com", "devdiscourse",
 ]
 
 
@@ -94,6 +96,10 @@ def run_pipeline(topic: str, page_size: int = 20, max_articles: int = 8):
             continue
 
         if not is_topically_relevant(cleaned_text, topic):
+            skipped += 1
+            continue
+        
+        if article.get("_relevance_score", 0) < 0.25:
             skipped += 1
             continue
 
