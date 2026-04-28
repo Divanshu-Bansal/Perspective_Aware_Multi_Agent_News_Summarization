@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import re
 import json
 import time
 import plotly.express as px
@@ -430,19 +431,49 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
     )
     log_final_summary(task, neutral_summary, topic)
 
-    # Extract just the summary text for display
+    # TODO
+    # # Extract just the summary text for display
+    # lines = neutral_summary.strip().split("\n")
+    # summary_text = ""
+    # for line in lines:
+    #     line = line.strip()
+    #     if line and not line.startswith("=") and not line.startswith("-") \
+    #             and not line.startswith("NEUTRAL") and not line.startswith("Topic:") \
+    #             and not line.startswith("KEY") and not line.startswith("•") \
+    #             and not line.startswith("PERSP") and not line.startswith("[") \
+    #             and not line.startswith("SOURCE") and not line.startswith("Relevance") \
+    #             and not line.startswith("URL") and not line.startswith("Perspective div") \
+    #             and not line.startswith("Similarity"):
+    #         summary_text += line + " "
+
+
     lines = neutral_summary.strip().split("\n")
-    summary_text = ""
+    clean_lines = []
+
     for line in lines:
         line = line.strip()
-        if line and not line.startswith("=") and not line.startswith("-") \
-                and not line.startswith("NEUTRAL") and not line.startswith("Topic:") \
-                and not line.startswith("KEY") and not line.startswith("•") \
-                and not line.startswith("PERSP") and not line.startswith("[") \
-                and not line.startswith("SOURCE") and not line.startswith("Relevance") \
-                and not line.startswith("URL") and not line.startswith("Perspective div") \
-                and not line.startswith("Similarity"):
-            summary_text += line + " "
+
+        # skip empty
+        if not line:
+            continue
+
+        # skip separators and metadata
+        if re.match(r"^[=\-\─]+$", line):
+            continue
+        if any(keyword in line.lower() for keyword in [
+            "topic:", "key themes", "perspectives", "source", "relevance",
+            "similarity", "diversity", "http", "www"
+        ]):
+            continue
+
+        # skip lines that look like titles (too short or weird formatting)
+        if len(line.split()) < 5:
+            continue
+
+        clean_lines.append(line)
+
+    # Take only first 2–3 meaningful lines
+    summary_text = " ".join(clean_lines[:3])
 
     summary_placeholder.markdown(f"""
     <div class="neutral-summary-box">

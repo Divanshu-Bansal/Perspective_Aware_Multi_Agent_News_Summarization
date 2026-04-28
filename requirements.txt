@@ -10,3 +10,4 @@ clearml
 streamlit
 plotly
 pandas
+pyngrok
