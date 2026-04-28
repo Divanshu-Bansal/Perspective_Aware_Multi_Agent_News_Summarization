@@ -6,23 +6,22 @@ _summarizer = None
 def get_summarizer():
     global _summarizer
     if _summarizer is None:
-        # Use smaller model on Streamlit Cloud (memory constrained)
-        # Use full model on SageMaker (GPU available)
-        is_cloud = os.getenv("STREAMLIT_SHARING_MODE") or os.getenv("IS_STREAMLIT_CLOUD")
+        is_cloud = (
+            os.getenv("IS_STREAMLIT_CLOUD") == "true"
+            or os.getenv("STREAMLIT_SHARING_MODE") is not None
+        )
         model = "sshleifer/distilbart-cnn-12-6" if is_cloud else "facebook/bart-large-cnn"
-        
+        print(f"Loading summarization model: {model}")
         _summarizer = pipeline(
             "summarization",
             model=model,
             framework="pt"
         )
-        print(f"Loaded summarization model: {model}")
     return _summarizer
 
 
 def chunk_text(text: str, max_words: int = 400):
     words = text.split()
-
     for i in range(0, len(words), max_words):
         yield " ".join(words[i:i + max_words])
 
@@ -30,26 +29,26 @@ def chunk_text(text: str, max_words: int = 400):
 def summarize_article(text: str) -> str:
     if not text:
         return ""
-
     if len(text.split()) < 40:
         return text
-
     summarizer = get_summarizer()
     chunks = list(chunk_text(text))
-
     summaries = []
-
     for chunk in chunks:
         if len(chunk.split()) < 40:
             continue
-
-        result = summarizer(
-            chunk,
-            max_length=130,
-            min_length=40,
-            do_sample=False
-        )
-
-        summaries.append(result[0]["summary_text"])
-
+        word_count = len(chunk.split())
+        max_len = min(130, max(30, word_count // 2))
+        min_len = min(30, max_len - 10)
+        try:
+            result = summarizer(
+                chunk,
+                max_length=max_len,
+                min_length=min_len,
+                do_sample=False
+            )
+            summaries.append(result[0]["summary_text"])
+        except Exception as e:
+            print(f"Summarization error: {e}")
+            summaries.append(chunk[:300])
     return " ".join(summaries)
