@@ -1,17 +1,22 @@
+import os
 from transformers import pipeline
 
 _summarizer = None
 
 def get_summarizer():
     global _summarizer
-
     if _summarizer is None:
+        # Use smaller model on Streamlit Cloud (memory constrained)
+        # Use full model on SageMaker (GPU available)
+        is_cloud = os.getenv("STREAMLIT_SHARING_MODE") or os.getenv("IS_STREAMLIT_CLOUD")
+        model = "sshleifer/distilbart-cnn-12-6" if is_cloud else "facebook/bart-large-cnn"
+        
         _summarizer = pipeline(
             "summarization",
-            model="facebook/bart-large-cnn",
+            model=model,
             framework="pt"
         )
-
+        print(f"Loaded summarization model: {model}")
     return _summarizer
 
 
