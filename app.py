@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 import json
 import time
 import plotly.express as px
@@ -291,6 +292,10 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
 
         # Summarise
         summary = summarize_article(cleaned_text)
+        # Free memory after each summarization on cloud
+        if os.getenv("IS_STREAMLIT_CLOUD") == "true":
+            import gc
+            gc.collect()
         if not summary:
             placeholder.empty()
             continue
@@ -473,8 +478,9 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## Settings")
-    page_size    = st.slider("Articles to fetch per source", 5, 20, 10)
-    max_articles = st.slider("Max articles to analyse",      3, 10,  8)
+    is_cloud = os.getenv("IS_STREAMLIT_CLOUD") == "true"
+    page_size    = st.slider("Articles to fetch per source", 5, 20, 5 if is_cloud else 10)
+    max_articles = st.slider("Max articles to analyse",      3, 10, 4 if is_cloud else 8)
     st.divider()
     st.markdown("### Example topics")
     examples = [
