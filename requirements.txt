@@ -1,13 +1,44 @@
-requests
-python-dotenv
-transformers==4.36.2
-tokenizers==0.15.2
+# =============================================================================
+# Project Dependencies
+# =============================================================================
+# Install with:
+#   pip install -r requirements.txt
+# =============================================================================
+
+
+# ─────────────────────────────────────────────────────────────
+# Core Utilities
+# ─────────────────────────────────────────────────────────────
+requests              # API calls
+python-dotenv         # Environment variable management
+
+
+# ─────────────────────────────────────────────────────────────
+# Machine Learning / NLP
+# ─────────────────────────────────────────────────────────────
+transformers==4.36.2  # HuggingFace models (summarization)
+tokenizers==0.15.2    # Tokenization backend
 huggingface-hub==0.20.3
-numpy
-scikit-learn
-torch
-clearml
-streamlit
-plotly
-pandas
-pyngrok
+
+torch                 # PyTorch backend for transformers
+numpy                 # Numerical computations
+scikit-learn          # TF-IDF, cosine similarity
+
+
+# ─────────────────────────────────────────────────────────────
+# Data Processing & Visualization
+# ─────────────────────────────────────────────────────────────
+pandas                # Data manipulation
+plotly                # Interactive charts
+
+
+# ─────────────────────────────────────────────────────────────
+# Application & UI
+# ─────────────────────────────────────────────────────────────
+streamlit             # Web app framework
+
+
+# ─────────────────────────────────────────────────────────────
+# Experiment Tracking
+# ─────────────────────────────────────────────────────────────
+clearml               # ML experiment tracking

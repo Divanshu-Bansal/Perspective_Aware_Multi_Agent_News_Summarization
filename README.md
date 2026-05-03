@@ -46,7 +46,7 @@ The app is deployed via GitHub Actions with a Cloudflare tunnel. To launch it:
 
 ## Architecture
 
-![Alt Text](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/Architecture/multi_agent_news_summarization_pipeline.png)
+![Architecture diagram of the application](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/Architecture/multi_agent_news_summarization_pipeline.png)
 ---
 
 ## Key features

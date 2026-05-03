@@ -6,6 +6,9 @@ import plotly.express as px
 import pandas as pd
 from pathlib import Path
 
+# ─────────────────────────────────────────────────────────────
+# Internal pipeline modules
+# ─────────────────────────────────────────────────────────────
 from src.data_collection.fetch_news import fetch_news, save_articles
 from src.preprocessing.clean_text import clean_text
 from src.summarization.summarize import summarize_article
@@ -17,7 +20,9 @@ from src.tracking.clearml_tracker import (
     log_final_summary, close_task,
 )
 
-# ── Page config ───────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# Page Configuration (Streamlit UI setup)
+# ─────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Perspective-Aware News Summarizer",
     page_icon="🗞️",
@@ -25,7 +30,10 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── Custom CSS ────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# Custom CSS Styling
+# Purpose: Improve UI readability and visual hierarchy
+# ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
     .main-title {
@@ -89,7 +97,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── Constants ─────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────
+# Constants
+# ─────────────────────────────────────────────────────────────
+
+# Color mapping for perspective categories (used in charts + badges)
 PERSPECTIVE_COLORS = {
     "Economic":      "#f59e0b",
     "Political":     "#ef4444",
@@ -99,28 +112,51 @@ PERSPECTIVE_COLORS = {
     "General":       "#6b7280",
 }
 
+# Keywords to exclude low-quality/irrelevant content (noise filtering)
 EXCLUDE_KEYWORDS = [
     "celebrity", "actor", "actress", "movie", "film",
     "hollywood", "entertainment", "reality tv", "fashion week",
     "music video", "box office", "grammy", "oscar",
 ]
 
+# Sources to exclude (low relevance for analytical/news context)
 EXCLUDE_SOURCES = [
     "yahoo entertainment", "tmz", "people", "e! news",
     "entertainment weekly", "variety", "deadline",
 ]
 
 
-# ── Helper functions ──────────────────────────────────────────────────────────
+
+
+# ─────────────────────────────────────────────────────────────
+# Helper Functions
+# ─────────────────────────────────────────────────────────────
+
 def is_topically_relevant(text: str, topic: str, threshold: float = 0.15) -> bool:
+    """
+    Checks if a text is relevant to the given topic.
+
+    Strategy:
+    - Match topic keywords in text
+    - Require minimum overlap ratio
+
+    Returns:
+        bool: True if relevant, False otherwise
+    """
     topic_words = [w for w in topic.lower().split() if len(w) > 2]
     if not topic_words:
         return True
+    
     matches = sum(1 for w in topic_words if w in text.lower())
     return (matches / len(topic_words)) >= threshold
 
 
 def relevance_bar_html(score: float) -> str:
+    """
+    Generates a visual relevance bar (UI component).
+
+    Used to show article importance visually.
+    """
     width = int(score * 100)
     return f"""
     <div style="background:#333;border-radius:3px;height:6px;margin-top:6px;">
@@ -134,6 +170,9 @@ def relevance_bar_html(score: float) -> str:
 
 
 def perspective_badge_html(perspective: str) -> str:
+    """
+    Returns styled HTML badge for perspective label.
+    """
     color = PERSPECTIVE_COLORS.get(perspective, "#6b7280")
     return (
         f'<span style="background:{color}22;color:{color};'
@@ -145,8 +184,10 @@ def perspective_badge_html(perspective: str) -> str:
 
 def extract_summary_text(neutral_summary: str) -> str:
     """
-    Extract just the clean summary paragraph from generate.py output.
-    Looks for text between the Topic: line and the first section divider.
+    Extracts only the clean summary paragraph from structured output.
+
+    Reason:
+    generate.py returns formatted sections → we only need main summary for UI.
     """
     lines = neutral_summary.strip().split("\n")
     capture = False
@@ -204,7 +245,13 @@ def article_card_html(
     perspective: str = "",
     summarizing: bool = False,
 ) -> str:
-    """Build a consistent article card HTML string."""
+    """
+    Builds a reusable article card component (HTML).
+
+    Used for:
+    - Initial loading state
+    - Final display with summary + perspective
+    """
     title_html = (
         f'<a href="{url}" target="_blank" style="color:white;text-decoration:none;">{title}</a>'
         if url else title
@@ -226,16 +273,26 @@ def article_card_html(
     </div>
     """
 
-
-# ── Main pipeline ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# Main Pipeline (Core Application Logic)
+# ─────────────────────────────────────────────────────────────
 def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
-    """Main pipeline with progressive streaming UI updates."""
+    """
+    Main end-to-end pipeline with progressive UI updates.
 
-    # ── ClearML ───────────────────────────────────────────────────────────────
+    Pipeline Steps:
+    1. Fetch articles from multiple APIs
+    2. Filter + summarize content
+    3. Compare perspectives
+    4. Generate neutral summary
+    5. Display + export results
+    """
+
+    # ── ClearML tracking initialization ──
     task = init_task(topic)
     log_pipeline_config(task, topic, page_size, max_articles)
 
-    # ── Step 1: Fetch ─────────────────────────────────────────────────────────
+    # ── Step 1: Fetch articles ──
     st.markdown(
         '<div class="step-header">Step 1 — Querying news sources...</div>',
         unsafe_allow_html=True
@@ -255,6 +312,7 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
         close_task(task)
         return
 
+    # Log fetch metrics for experiment tracking
     log_fetch_metrics(task, {
         "total_fetched":   total,
         "after_relevance": len(articles),
@@ -274,7 +332,12 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
     col4.metric("GNews",          sum(1 for a in articles if a.get("api") == "GNews"))
     st.divider()
 
-    # ── Step 2: Filter + Summarise ────────────────────────────────────────────
+    # ── Step 2: Filtering + Summarization ──
+    # Applies:
+    # - keyword filtering
+    # - source filtering
+    # - deduplication
+    # - summarization model
     st.markdown(
         '<div class="step-header">Step 2 — Reading and summarizing articles...</div>',
         unsafe_allow_html=True
@@ -286,6 +349,7 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
     article_placeholders = []
 
     for article in articles:
+        # Apply filtering rules (quality control)
         if len(source_summaries) >= max_articles:
             break
 
@@ -326,7 +390,7 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
             unsafe_allow_html=True,
         )
 
-        # Summarise
+        # Summarize using transformer model
         summary = summarize_article(cleaned_text)
 
         # Free memory on cloud
@@ -347,6 +411,8 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
             "api":             article.get("api", "Unknown"),
             "perspective":     "",
         }
+
+        # Store processed article
         source_summaries.append(item)
         article_placeholders.append((placeholder, item))
 
@@ -377,7 +443,11 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
     st.caption(f"{len(source_summaries)} articles summarized · {skipped} skipped")
     st.divider()
 
-    # ── Step 3: Comparison ────────────────────────────────────────────────────
+    # ── Step 3: Comparison ──
+    # Performs:
+    # - perspective classification
+    # - similarity detection
+    # - theme extraction
     st.markdown(
         '<div class="step-header">Step 3 — Comparing perspectives...</div>',
         unsafe_allow_html=True
@@ -464,7 +534,7 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
 
     st.divider()
 
-    # ── Step 4: Neutral summary ───────────────────────────────────────────────
+    # ── Step 4: Neutral Summary Generation ──
     st.markdown(
         '<div class="step-header">Step 4 — Generating neutral summary...</div>',
         unsafe_allow_html=True
@@ -486,7 +556,7 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
         unsafe_allow_html=True,
     )
 
-    # ── Save + Download ───────────────────────────────────────────────────────
+    # ── Step 4: Neutral Summary Generation ──
     output_dir  = Path("outputs/summaries")
     output_dir.mkdir(parents=True, exist_ok=True)
     output_file = output_dir / "latest_summary.json"
@@ -504,6 +574,7 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
 
     close_task(task)
 
+    # Provide download option to user
     st.divider()
     st.download_button(
         label="Download full report (JSON)",
@@ -512,8 +583,9 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
         mime="application/json",
     )
 
-
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# Sidebar UI (User Controls)
+# ─────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## Settings")
     is_cloud     = os.getenv("IS_STREAMLIT_CLOUD") == "true"
@@ -538,7 +610,10 @@ with st.sidebar:
     st.caption("Powered by NewsAPI · The Guardian · GNews · BART · ClearML")
 
 
-# ── Main UI ───────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────
+# Main UI Entry Point
+# ─────────────────────────────────────────────────────────────
 st.markdown(
     '<div class="main-title">🗞️ Perspective-Aware News Summarizer</div>',
     unsafe_allow_html=True

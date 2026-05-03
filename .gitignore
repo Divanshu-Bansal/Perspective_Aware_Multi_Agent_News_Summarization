@@ -1,29 +1,73 @@
-# Environment & secrets
+# =============================================================================
+# Git Ignore Configuration
+# =============================================================================
+# Defines files and directories that should NOT be tracked by Git.
+#
+# Purpose:
+# - Prevent sensitive data (API keys, configs) from being committed
+# - Avoid large or generated files bloating the repository
+# - Keep the repo clean and portable
+# =============================================================================
+
+
+# ─────────────────────────────────────────────────────────────
+# Environment & Secrets (CRITICAL)
+# ─────────────────────────────────────────────────────────────
+
+# Local environment variables (contains API keys)
 .env
+
+# ClearML configuration file (may contain credentials)
 clearml.conf
 
-# Python
+
+# ─────────────────────────────────────────────────────────────
+# Python Build & Cache Files
+# ─────────────────────────────────────────────────────────────
+
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
+
+# Packaging / distribution artifacts
 *.egg-info/
 dist/
 build/
 
-# Data & outputs (too large for GitHub)
+
+# ─────────────────────────────────────────────────────────────
+# Data & Output Files (Generated / Large)
+# ─────────────────────────────────────────────────────────────
+
+# Raw fetched data
 data/raw/
+
+# Generated outputs (summaries, reports, etc.)
 outputs/
 
-# Models cache
+
+# ─────────────────────────────────────────────────────────────
+# Model & Cache Directories
+# ─────────────────────────────────────────────────────────────
+
+# HuggingFace / model caches
 .cache/
 models/
 
-# SageMaker
+
+# ─────────────────────────────────────────────────────────────
+# Jupyter / Notebook Artifacts
+# ─────────────────────────────────────────────────────────────
+
 .ipynb_checkpoints/
 *.ipynb
 
-# OS
+
+# ─────────────────────────────────────────────────────────────
+# Operating System Files
+# ─────────────────────────────────────────────────────────────
+
 .DS_Store
 Thumbs.db
