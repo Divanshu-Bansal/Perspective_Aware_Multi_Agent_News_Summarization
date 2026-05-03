@@ -128,7 +128,7 @@ jobs:
           echo "   $TUNNEL_URL"
           echo ""
           echo "=============================================="
-          echo "   App will stay live for up to 6 hours"
+          echo "   App will stay live for up to 1 hour"
           echo "   Keep this workflow running to maintain it"
           echo "=============================================="
 
