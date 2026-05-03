@@ -12,14 +12,14 @@ jobs:
     timeout-minutes: 60  # 1 hours max
 
     steps:
-      # ── Step 1: Checkout code ─────────────────────────────────────────────
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: main
+      # # ── Step 1: Checkout code ─────────────────────────────────────────────
+      # - name: Checkout repository
+      #   uses: actions/checkout@v4
+      #   with:
+      #     ref: main
 
-      # ── Step 2: Set up Python ─────────────────────────────────────────────
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+      # # ── Step 2: Set up Python ─────────────────────────────────────────────
+      # - name: Set up Python 3.10
+      #   uses: actions/setup-python@v5
+      #   with:
+      #     python-version: "3.10"
