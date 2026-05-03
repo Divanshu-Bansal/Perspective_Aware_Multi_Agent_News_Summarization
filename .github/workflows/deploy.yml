@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60  # 1 hours max
 
-    steps:
+    # steps:
       # # ── Step 1: Checkout code ─────────────────────────────────────────────
       # - name: Checkout repository
       #   uses: actions/checkout@v4
