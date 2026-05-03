@@ -30,6 +30,9 @@ All of this runs through a Streamlit UI with progressive streaming — you watch
 **3. Perspective breakdown and neutral summary generation**
 ![Perspective breakdown, themes and neutral summary output](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/screenshots/Step%203%20%26%204.png)
 
+**4. Task logs in ClearML**
+![Task logs in ClearML](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/screenshots/ClearML.png)
+
 ---
 
 ## Live demo
