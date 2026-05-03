@@ -21,9 +21,14 @@ All of this runs through a Streamlit UI with progressive streaming — you watch
 
 ## Screenshots
 
-![User input to search for a topic]([docs/screenshot_2.png](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/screenshots/Step%201.png))
-![Article cards with relevance scores]([docs/screenshot_1.png](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/screenshots/Step%202.png))
-![Perspective breakdown, themes and neutral summary output]([docs/screenshot_3.png](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/screenshots/Step%203%20%26%204.png))
+**1. User Inputs a topic to search**
+![User input to search for a topic](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/screenshots/Step%201.png)
+
+**2. Summarizing articles with relevance scores**
+![Article cards with relevance scores](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/screenshots/Step%202.png)
+
+**3. Perspective breakdown and neutral summary generation**
+![Perspective breakdown, themes and neutral summary output](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/screenshots/Step%203%20%26%204.png)
 
 ---
 
