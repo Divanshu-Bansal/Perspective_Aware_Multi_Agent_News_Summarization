@@ -1,166 +1,117 @@
-# Perspective-Aware Multi-Agent News Summarization System
+# 🗞️ Perspective-Aware Multi-Agent News Summarization System
 
-> Automatically collects, analyzes, and summarizes news from multiple sources — producing a balanced, unbiased view of any topic with transparent source attribution and perspective detection.
-
----
-
-## Overview
-
-This system addresses a core problem in modern news consumption: **single-source bias**. When readers rely on one outlet, they get one perspective. This project fetches articles from multiple sources, summarizes each independently, compares them using NLP techniques, and generates a neutral combined summary that reflects the full landscape of coverage.
-
-Built as a modular multi-agent pipeline where each component (collection, preprocessing, summarization, comparison, generation) operates independently and can be improved or swapped without affecting the others.
+> Automatically collects, processes, and summarizes news from multiple sources — producing a balanced, bias-aware view of any topic with transparent source attribution and perspective analysis.
 
 ---
 
-## Demo Output
+## What it does
 
-```
-==================================================
-  NEUTRAL SUMMARY
-  Topic: OpenAI vs Google AI competition
-==================================================
+When you enter a news topic, the system:
 
-OpenAI is on a mission to scale up its AI compute capacity to 30GW by the
-end of this decade. Google's market share has broadly held firm in the wake
-of everything AI.
+1. **Fetches articles** from three independent news APIs in parallel
+2. **Cleans and filters** content through a multi-layer relevance pipeline
+3. **Summarizes each article** individually using a transformer-based NLP model
+4. **Compares perspectives** across sources using TF-IDF and cosine similarity
+5. **Generates a neutral summary** that reflects multiple viewpoints rather than a single biased source
+6. **Tracks every run** as a ClearML experiment with full metrics logging
 
-──────────────────────────────────────────────────
-  KEY THEMES
-──────────────────────────────────────────────────
-  • mission
-  • openai
-  • google
-  • market
-  • compute scale
-  • ai race
+All of this runs through a Streamlit UI with progressive streaming — you watch each step happen in real time.
 
-──────────────────────────────────────────────────
-  PERSPECTIVES DETECTED
-──────────────────────────────────────────────────
-  [Technological] Wccftech
-    └─ OpenAI To Scale-Up AI Compute Capacity To A Whopping 30GW By 2030
-  [Economic] Leadershipinseo.com
-    └─ Why Google Has Changed & Who's Really Paying for It
-  [Economic] Ibtimes.com.au
-    └─ Grok vs Gemini vs ChatGPT: Who Wins the AI Race by 2031?
+---
 
-  Perspective diversity score: 2 unique viewpoint(s)
-  Similarity method: tf-idf + cosine similarity
+## Screenshots
 
-──────────────────────────────────────────────────
-  SOURCE CONTRIBUTIONS
-──────────────────────────────────────────────────
-  Wccftech
-    Relevance: █████░░░░░ 0.50
-  Leadershipinseo.com
-    Relevance: ███░░░░░░░ 0.33
-  Ibtimes.com.au
-    Relevance: ███░░░░░░░ 0.33
-==================================================
-```
+![User input to search for a topic]([docs/screenshot_2.png](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/screenshots/Step%201.png))
+![Article cards with relevance scores]([docs/screenshot_1.png](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/screenshots/Step%202.png))
+![Perspective breakdown, themes and neutral summary output]([docs/screenshot_3.png](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/screenshots/Step%203%20%26%204.png))
+
+---
+
+## Live demo
+
+The app is deployed via GitHub Actions with a Cloudflare tunnel. To launch it:
+
+1. Go to the **Actions** tab in this repository
+2. Click **Deploy Streamlit App**
+3. Click **Run workflow → Run workflow**
+4. Wait ~6 minutes for the model to load
+5. Click the Cloudflare URL printed in the workflow logs
 
 ---
 
 ## Architecture
 
-```
-User Query
-    │
-    ▼
-┌─────────────────────┐
-│   Data Collection   │  fetch_news.py
-│   Agent             │  NewsAPI → relevance scoring → ranked articles
-└────────┬────────────┘
-         │
-         ▼
-┌─────────────────────┐
-│   Preprocessing     │  clean_text.py
-│   Agent             │  URL removal, HTML artifacts, noise filtering
-└────────┬────────────┘
-         │
-         ▼
-┌─────────────────────┐
-│   Summarization     │  summarize.py
-│   Agent             │  facebook/bart-large-cnn, chunked inference
-└────────┬────────────┘
-         │
-         ▼
-┌─────────────────────┐
-│   Comparison        │  compare.py
-│   Agent             │  TF-IDF, cosine similarity, perspective classification
-└────────┬────────────┘
-         │
-         ▼
-┌─────────────────────┐
-│   Generation        │  generate.py
-│   Agent             │  Neutral summary + bias detection + structured output
-└────────┬────────────┘
-         │
-         ▼
-  Structured Report
-  (stdout + JSON)
-```
+![Alt Text](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/Architecture/multi_agent_news_summarization_pipeline.png)
+---
+
+## Key features
+
+**Multi-source aggregation** — fetches up to 50 articles per query by querying NewsAPI, The Guardian, and GNews in parallel. Articles are deduplicated across sources and ranked by a weighted relevance score (title matches weighted 3×, description 2×, content 1×).
+
+**Intelligent filtering** — five-layer pipeline that enforces minimum content length, topic relevance threshold (≥ 0.25), source diversity, exclusion of entertainment and spam domains, and keyword-based category filtering.
+
+**Transformer-based summarization** — uses `facebook/bart-large-cnn` with chunked inference to handle articles of any length. Long articles are split into 400-word windows, each summarized independently, then combined.
+
+**Perspective classification** — classifies each source into one of five viewpoint categories (Economic, Political, Technological, Social, Security) using keyword-weighted scoring. Reports a perspective diversity score per run.
+
+**Theme extraction** — TF-IDF with bigram support and domain-specific stop words surfaces meaningful shared themes across articles. Topic words are automatically excluded from themes to avoid trivial results.
+
+**Cosine similarity analysis** — detects when multiple sources are covering the same angle, flagging redundant perspectives and identifying the most unique coverage.
+
+**Bias detection** — warns when ≥ 80% of sources share the same perspective type, prompting the user to seek more diverse coverage.
+
+**ClearML experiment tracking** — every pipeline run is logged as a ClearML task with fetch metrics, per-article relevance scores, perspective distribution, common themes, and the final summary.
+
+**Progressive streaming UI** — Streamlit app shows each step as it happens. Article cards appear one by one, summaries fill in as they complete, perspective badges appear after comparison, and the neutral summary appears last.
+
+**CI/CD deployment** — GitHub Actions workflow installs dependencies, configures the environment, starts Streamlit, opens a Cloudflare tunnel, and prints the public URL in the workflow logs.
 
 ---
 
-## Key Features
-
-**Multi-source aggregation** — fetches up to 20 articles per query from NewsAPI, ranked by a weighted relevance score (title matches weighted 3×, description 2×, content 1×).
-
-**Intelligent filtering** — four-layer pipeline: minimum length check, topic relevance guard, source deduplication, and exclusion of off-topic categories (entertainment, celebrity, etc.).
-
-**Transformer-based summarization** — uses `facebook/bart-large-cnn` with chunked inference to handle articles of any length without hitting token limits.
-
-**Perspective classification** — classifies each source into Economic, Political, Technological, Social, or Security viewpoints using keyword-weighted scoring across 5 categories.
-
-**Theme extraction** — TF-IDF with bigram support and domain-specific stop words surfaces meaningful shared themes across articles (e.g. "compute scale", "market share") rather than noise words.
-
-**Cosine similarity analysis** — detects when multiple sources are covering the same angle, flagging redundant perspectives.
-
-**Bias detection** — warns when ≥80% of sources share the same perspective type, prompting the user to seek more diverse coverage.
-
-**Relevance scoring** — every source contribution is shown with a numeric score and visual bar, making the system's reasoning transparent.
-
-**Structured output** — results saved as both a formatted terminal report and a JSON file for downstream use.
-
-**CLI interface** — supports `--topic`, `--sources`, and `--max` flags for flexible usage.
-
----
-
-## Tech Stack
+## Tech stack
 
 | Component | Technology |
 |---|---|
-| News retrieval | NewsAPI (`/v2/everything`) |
-| Summarization model | `facebook/bart-large-cnn` via HuggingFace Transformers |
+| News APIs | NewsAPI · The Guardian API · GNews API |
+| Summarization | `facebook/bart-large-cnn` via HuggingFace Transformers |
 | Theme extraction | TF-IDF with bigrams (scikit-learn) |
 | Similarity analysis | Cosine similarity on TF-IDF vectors |
 | Perspective classification | Keyword-weighted multi-category scoring |
-| Runtime | Python 3.12, PyTorch |
-| Output formats | Structured terminal report + JSON |
+| Experiment tracking | ClearML |
+| UI framework | Streamlit |
+| Visualizations | Plotly Express |
+| Deployment | GitHub Actions + Cloudflare tunnel |
+| Runtime | Python 3.10 · PyTorch |
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
 ├── src/
 │   ├── data_collection/
-│   │   └── fetch_news.py        # NewsAPI integration + relevance scoring
+│   │   └── fetch_news.py          # Multi-source parallel fetching + relevance scoring
 │   ├── preprocessing/
-│   │   └── clean_text.py        # Text cleaning and noise removal
+│   │   └── clean_text.py          # Text cleaning and noise removal
 │   ├── summarization/
-│   │   └── summarize.py         # BART-based chunked summarization
+│   │   └── summarize.py           # BART-based chunked summarization
 │   ├── comparison/
-│   │   └── compare.py           # TF-IDF, cosine similarity, perspective classification
+│   │   └── compare.py             # TF-IDF, cosine similarity, perspective classification
 │   ├── neutral_generation/
-│   │   └── generate.py          # Final summary generation + bias detection
-│   └── config.py                # Environment config
+│   │   └── generate.py            # Neutral summary generation + bias detection
+│   ├── tracking/
+│   │   └── clearml_tracker.py     # ClearML experiment logging
+│   └── config.py                  # Environment configuration
+├── .github/
+│   └── workflows/
+│       └── deploy.yml             # GitHub Actions CI/CD pipeline
 ├── data/
-│   └── raw/                     # Saved raw article JSON per query
+│   └── raw/                       # Saved raw article JSON per query
 ├── outputs/
-│   └── summaries/               # Saved structured output JSON per run
-├── main.py                      # Pipeline orchestrator + CLI
+│   └── summaries/                 # Saved structured output JSON per run
+├── app.py                         # Streamlit UI with progressive streaming
+├── main.py                        # CLI pipeline orchestrator
+├── run_on_colab.ipynb             # Google Colab deployment notebook
 ├── requirements.txt
 └── .env.example
 ```
@@ -171,8 +122,8 @@ User Query
 
 **1. Clone the repository**
 ```bash
-git clone https://github.com/YOUR_USERNAME/perspective-aware-news-summarization.git
-cd perspective-aware-news-summarization
+git clone https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization.git
+cd Perspective_Aware_Multi_Agent_News_Summarization
 ```
 
 **2. Create and activate a virtual environment**
@@ -187,95 +138,116 @@ venv\Scripts\activate           # Windows
 pip install -r requirements.txt
 ```
 
-**4. Set up your API key**
+**4. Configure API keys**
 ```bash
 cp .env.example .env
-# Edit .env and add your NewsAPI key:
-# NEWS_API_KEY=your_key_here
 ```
-Get a free API key at [newsapi.org](https://newsapi.org).
+
+Edit `.env` and fill in your keys:
+```
+NEWS_API_KEY=your_newsapi_key
+GUARDIAN_API_KEY=your_guardian_key
+GNEWS_API_KEY=your_gnews_key
+CLEARML_API_ACCESS_KEY=your_clearml_access_key
+CLEARML_API_SECRET_KEY=your_clearml_secret_key
+CLEARML_API_HOST=https://api.clear.ml
+```
+
+**5. Configure ClearML**
+```bash
+clearml-init
+```
 
 ---
 
 ## Usage
 
-**Interactive mode**
+### Streamlit UI
 ```bash
-python main.py
-# Enter news topic: climate change policy
+streamlit run app.py
 ```
 
-**CLI mode**
+### CLI
 ```bash
-python main.py --topic "climate change policy"
-python main.py --topic "electric vehicles" --sources 30 --max 10
+python main.py --topic "US China trade war"
+python main.py --topic "electric vehicle market" --sources 30 --max 10
 ```
 
-**CLI arguments**
+### CLI arguments
 
 | Argument | Default | Description |
 |---|---|---|
 | `--topic` | (prompted) | News topic to summarize |
-| `--sources` | 20 | Number of articles to fetch from NewsAPI |
-| `--max` | 8 | Maximum articles to process after filtering |
-
-**Output files**
-
-Each run saves two files automatically:
-- `data/raw/<topic>_<timestamp>.json` — raw API response
-- `outputs/summaries/latest_summary.json` — structured final output
+| `--sources` | 20 | Articles to fetch per source |
+| `--max` | 8 | Max articles to process after filtering |
 
 ---
 
-## How It Works
+## API keys — all free
 
-### 1. Relevance Scoring
-Rather than a simple keyword match, each article receives a weighted relevance score:
+| API | Free tier | Sign up |
+|---|---|---|
+| NewsAPI | 100 requests/day | [newsapi.org](https://newsapi.org) |
+| The Guardian | Unlimited | [open-platform.theguardian.com](https://open-platform.theguardian.com/access/) |
+| GNews | 100 requests/day | [gnews.io](https://gnews.io) |
+| ClearML | Free hosted | [app.clear.ml](https://app.clear.ml) |
 
+---
+
+## GitHub Actions deployment
+
+The repository includes a workflow that deploys the app automatically.
+
+**Setup — add these secrets to your repository** (Settings → Secrets → Actions):
 ```
-score = (title_matches × 3 + description_matches × 2 + content_matches × 1)
-        ─────────────────────────────────────────────────────────────────────
-                            max_possible_score
+NEWS_API_KEY
+GUARDIAN_API_KEY
+GNEWS_API_KEY
+CLEARML_API_ACCESS_KEY
+CLEARML_API_SECRET_KEY
 ```
 
-Articles below a 0.15 threshold are discarded before any NLP processing begins.
+**Trigger options:**
+- Push to `main` → auto-deploys
+- Actions tab → Deploy Streamlit App → Run workflow → manual trigger
 
-### 2. Chunked Summarization
-BART has a 1024-token input limit. Long articles are split into 400-word chunks, each summarized independently, then the chunk summaries are joined and re-summarized into a single coherent output.
-
-### 3. Perspective Classification
-Each article summary is scored across five categories (Economic, Political, Technological, Social, Security) using weighted keyword matching. The category with the highest score wins. If no keywords match, the article is classified as "General".
-
-### 4. Theme Extraction
-TF-IDF is computed across all article summaries with bigram support (`ngram_range=(1,2)`). The top-scoring terms after stop word removal are surfaced as common themes — these represent what multiple sources are collectively emphasizing.
-
-### 5. Neutral Summary Generation
-The top 5 article summaries (filtered by a final topic guard) are concatenated and passed through BART a second time to produce a single neutral summary that blends perspectives rather than amplifying any single source.
-
----
-
-## Limitations and Future Work
-
-- **NewsAPI free tier** returns limited results for compound queries. A paid tier or alternative source (GDELT, MediaStack) would significantly improve coverage.
-- **Perspective classification** uses keyword heuristics. A fine-tuned classifier (e.g. on AllSides or Media Bias/Fact Check data) would be more accurate.
-- **Summarization** uses a single BART model. Future versions could use source-specific models or larger LLMs for richer summaries.
-- **No caching** — repeated queries re-fetch and re-summarize. Adding Redis or SQLite caching would speed up repeat runs significantly.
-- **Language support** — currently English only. Multilingual models (mBART, mT5) could extend coverage.
+**The workflow:**
+1. Sets up Python 3.10 on an Ubuntu runner
+2. Installs dependencies with pip caching
+3. Configures ClearML and environment variables
+4. Installs Cloudflare tunnel
+5. Starts Streamlit on port 8501
+6. Opens a Cloudflare tunnel and prints the public URL
+7. Keeps the app live for up to 6 hours
 
 ---
 
-## Example Topics to Try
+## Example topics
 
 ```bash
-python main.py --topic "climate change 2025"
 python main.py --topic "US China trade war"
+python main.py --topic "artificial intelligence regulation"
 python main.py --topic "electric vehicle market"
-python main.py --topic "cryptocurrency regulation"
-python main.py --topic "generative AI ethics"
+python main.py --topic "cryptocurrency Bitcoin"
+python main.py --topic "climate change policy"
+python main.py --topic "generative AI jobs"
 ```
+
+**Tips for best results:**
+- Use 2–4 keyword phrases rather than full sentences
+- Avoid very niche or hyper-local topics — free API tiers have limited coverage
+- Topics with recent news coverage return stronger results
 
 ---
 
-## License
+## Limitations and future work
 
-MIT License — see `LICENSE` for details.
+**Relevance filtering** currently uses weighted keyword matching. A production version would replace this with zero-shot semantic classification (e.g. `facebook/bart-large-mnli`) for topic-agnostic relevance scoring.
+
+**Perspective classification** uses keyword heuristics. A fine-tuned classifier trained on AllSides or Media Bias/Fact Check data would be significantly more accurate.
+
+**NewsAPI free tier** limits results to the last 30 days and returns at most 100 articles per query. A paid tier or additional sources (GDELT, MediaStack) would improve coverage for niche topics.
+
+**No caching** — repeated queries re-fetch and re-summarize. Adding Redis or SQLite caching would speed up repeat runs significantly.
+
+**Language support** — currently English only. Multilingual models (mBART, mT5) could extend coverage to other languages.
