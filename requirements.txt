@@ -1,73 +1,44 @@
 # =============================================================================
-# Git Ignore Configuration
+# Project Dependencies
 # =============================================================================
-# Defines files and directories that should NOT be tracked by Git.
-#
-# Purpose:
-# - Prevent sensitive data (API keys, configs) from being committed
-# - Avoid large or generated files bloating the repository
-# - Keep the repo clean and portable
+# Install with:
+#   pip install -r requirements.txt
 # =============================================================================
 
 
 # ─────────────────────────────────────────────────────────────
-# Environment & Secrets (CRITICAL)
+# Core Utilities
 # ─────────────────────────────────────────────────────────────
-
-# Local environment variables (contains API keys)
-.env
-
-# ClearML configuration file (may contain credentials)
-clearml.conf
+requests              # API calls
+python-dotenv         # Environment variable management
 
 
 # ─────────────────────────────────────────────────────────────
-# Python Build & Cache Files
+# Machine Learning / NLP
 # ─────────────────────────────────────────────────────────────
+transformers==4.36.2  # HuggingFace models (summarization)
+tokenizers==0.15.2    # Tokenization backend
+huggingface-hub==0.20.3
 
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-
-# Packaging / distribution artifacts
-*.egg-info/
-dist/
-build/
+torch                 # PyTorch backend for transformers
+numpy                 # Numerical computations
+scikit-learn          # TF-IDF, cosine similarity
 
 
 # ─────────────────────────────────────────────────────────────
-# Data & Output Files (Generated / Large)
+# Data Processing & Visualization
 # ─────────────────────────────────────────────────────────────
-
-# Raw fetched data
-data/raw/
-
-# Generated outputs (summaries, reports, etc.)
-outputs/
+pandas                # Data manipulation
+plotly                # Interactive charts
 
 
 # ─────────────────────────────────────────────────────────────
-# Model & Cache Directories
+# Application & UI
 # ─────────────────────────────────────────────────────────────
-
-# HuggingFace / model caches
-.cache/
-models/
+streamlit             # Web app framework
 
 
 # ─────────────────────────────────────────────────────────────
-# Jupyter / Notebook Artifacts
+# Experiment Tracking
 # ─────────────────────────────────────────────────────────────
-
-.ipynb_checkpoints/
-*.ipynb
-
-
-# ─────────────────────────────────────────────────────────────
-# Operating System Files
-# ─────────────────────────────────────────────────────────────
-
-.DS_Store
-Thumbs.db
+clearml               # ML experiment tracking
