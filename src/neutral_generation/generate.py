@@ -17,19 +17,6 @@ def _topic_guard(summaries: list[dict], topic: str, min_score: float = 0.1) -> l
             kept.append(item)
     return kept if kept else summaries
 
-# #TODO
-# def _clean_sentence(sentence: str) -> str:
-#     """
-#     Cleans a sentence for display — removes truncation artifacts and incomplete fragments.
-#     """
-#     sentence = sentence.strip()
-#     sentence = re.sub(r'\[\+\d+\s*chars?\]', '', sentence)
-#     if sentence and sentence[-1] not in '.!?':
-#         last_punct = max(sentence.rfind('.'), sentence.rfind('!'), sentence.rfind('?'))
-#         if last_punct > len(sentence) // 2:
-#             sentence = sentence[:last_punct + 1]
-#     return sentence.strip()
-
 def _clean_sentence(sentence: str) -> str:
     """
     Cleans a sentence for display — removes truncation artifacts.
