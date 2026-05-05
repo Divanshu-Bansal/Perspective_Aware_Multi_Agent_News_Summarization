@@ -241,64 +241,73 @@ def article_card_html(
     perspective: str = "", summarizing: bool = False,
 ) -> str:
     """Build a consistent article card HTML string."""
-    
-    # Title with optional link
-    title_escaped = title.replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
+
+    # ── Escape all user-supplied text first ──────────────────
+    def esc(text: str) -> str:
+        return (text
+            .replace('&', '&amp;')
+            .replace('<', '&lt;')
+            .replace('>', '&gt;')
+            .replace('"', '&quot;')
+        )
+
+    source_esc = esc(source)
+    api_esc    = esc(api)
+    title_esc  = esc(title)
+
+    # Title with optional link — url is not user content so safe to use directly
     title_html = (
         f'<a href="{url}" target="_blank" '
-        f'style="color:white;text-decoration:none;">{title_escaped}</a>'
-        if url else title_escaped
+        f'style="color:white;text-decoration:none;">{title_esc}</a>'
+        if url else title_esc
     )
-    
-    # Summary section
+
+    # Summary — escape before injecting
     if summarizing:
         summary_html = (
             '<div class="article-summary" '
             'style="color:#666;font-style:italic;">Summarizing...</div>'
         )
     else:
-        # Escape summary text to prevent any HTML injection
-        summary_escaped = (summary
-            .replace('&', '&amp;')
-            .replace('<', '&lt;')
-            .replace('>', '&gt;')
+        summary_html = (
+            f'<div class="article-summary">{esc(summary)}</div>'
         )
-        summary_html = f'<div class="article-summary">{summary_escaped}</div>'
-    
-    # Perspective badge — only shown when perspective is known and card is complete
+
+    # Perspective badge — built from our own controlled strings, no escaping needed
     badge_html = ""
     if perspective and not summarizing:
         color = PERSPECTIVE_COLORS.get(perspective, "#6b7280")
+        persp_esc = esc(perspective)
         badge_html = (
             f'<div style="margin-top:6px;">'
             f'<span style="background:{color}22;color:{color};'
             f'border:1px solid {color}55;border-radius:20px;'
             f'padding:2px 10px;font-size:0.75rem;font-weight:600;">'
-            f'{perspective}</span>'
+            f'{persp_esc}</span>'
             f'</div>'
         )
-    
-    # Relevance bar
-    width = int(score * 100)
-    bar_html = f"""
-    <div style="background:#333;border-radius:3px;height:6px;margin-top:8px;">
-        <div style="width:{width}%;height:6px;border-radius:3px;
-                    background:linear-gradient(90deg,#4ade80,#22d3ee);"></div>
-    </div>
-    <div style="font-size:0.75rem;color:#aaa;margin-top:2px;">
-        Relevance: {score:.2f}
-    </div>
-    """
-    
-    return f"""
-    <div class="article-card">
-        <div class="article-source">{source} &nbsp;·&nbsp; {api}</div>
-        <div class="article-title">{title_html}</div>
-        {summary_html}
-        {bar_html}
-        {badge_html}
-    </div>
-    """
+
+    # Relevance bar — score is a float, fully controlled
+    width = max(0, min(100, int(score * 100)))
+    bar_html = (
+        f'<div style="background:#333;border-radius:3px;height:6px;margin-top:8px;">'
+        f'<div style="width:{width}%;height:6px;border-radius:3px;'
+        f'background:linear-gradient(90deg,#4ade80,#22d3ee);"></div>'
+        f'</div>'
+        f'<div style="font-size:0.75rem;color:#aaa;margin-top:2px;">'
+        f'Relevance: {score:.2f}'
+        f'</div>'
+    )
+
+    return (
+        f'<div class="article-card">'
+        f'<div class="article-source">{source_esc} &nbsp;·&nbsp; {api_esc}</div>'
+        f'<div class="article-title">{title_html}</div>'
+        f'{summary_html}'
+        f'{bar_html}'
+        f'{badge_html}'
+        f'</div>'
+    )
 
 
 # ─────────────────────────────────────────────────────────────
@@ -489,9 +498,9 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
 
     st.divider()
 
-        # ── Step 4: Biased vs Neutral Summary Comparison ──
+        # ── Step 4: Single-Source vs. Multi-Source Summary Comparison ──
     st.markdown(
-        '<div class="step-header">Step 4 — Biased vs. Neutral Summary</div>',
+        '<div class="step-header">Step 4 — Single-Source vs. Multi-Source Summary</div>',
         unsafe_allow_html=True
     )
 
@@ -510,8 +519,11 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
     missing_count = len(missing)
 
     st.info(
-        "💡 This section compares what a reader gets from one high-relevance source "
-        "versus a summary built from multiple perspectives."
+        "💡 This section compares what a reader gets from a single outlet versus "
+        "an aggregated summary built from multiple independent sources. "
+        "More sources means broader perspective coverage — but note that "
+        "multi-source summaries reduce single-outlet dominance rather than "
+        "guaranteeing complete neutrality."
     )
 
     stat1, stat2, stat3 = st.columns(3)
@@ -528,7 +540,7 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
             """
             <div style="font-size:0.82rem;font-weight:800;letter-spacing:0.08em;
                         text-transform:uppercase;color:#ef4444;margin-bottom:0.6rem;">
-                ⚠️ Biased Summary
+                📰 Single-Source Summary
             </div>
             """,
             unsafe_allow_html=True,
@@ -565,14 +577,14 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
                     unsafe_allow_html=True,
                 )
 
-            st.caption("This version reflects the framing of a single outlet only.")
+            st.caption("This reflects what a reader gets from one outlet only.")
 
     with col_neutral:
         st.markdown(
             """
             <div style="font-size:0.82rem;font-weight:800;letter-spacing:0.08em;
                         text-transform:uppercase;color:#22c55e;margin-bottom:0.6rem;">
-                ✅ Neutral Summary
+                🌐 Multi-Source Summary
             </div>
             """,
             unsafe_allow_html=True,
@@ -604,16 +616,17 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
                 unsafe_allow_html=True,
             )
 
-            st.caption("This version combines multiple sources to reduce one-sided framing.")
+            st.caption("This aggregates multiple sources for broader perspective coverage.")
 
     if missing:
         st.markdown(
             f"""
             <div style="margin-top:1rem;background:#2a2412;border:1px solid #7c6a2a;
                         border-radius:12px;padding:1rem 1.2rem;color:#f3e7b3;line-height:1.7;">
-                <strong>Interpretation:</strong> The single-source summary narrows the topic to the
-                <strong>{biased_result["perspective"]}</strong> frame, while the neutral version restores
-                missing context from <strong>{", ".join(missing)}</strong> perspectives.
+                f'<strong>What this shows:</strong> The single-source summary only reflects the '
+                f'<strong>{biased_result["perspective"]}</strong> perspective from one outlet. '
+                f'The multi-source summary incorporates <strong>{", ".join(missing)}</strong> '
+                f'additional viewpoints, giving a broader picture of how this topic is being covered.'
             </div>
             """,
             unsafe_allow_html=True,
