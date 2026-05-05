@@ -70,6 +70,7 @@ st.markdown("""
         line-height: 1.5;
     }
     .neutral-summary-box {
+        min-height: 180px;
         background: #0f172a;
         border-left: 4px solid #4ade80;
         border-radius: 8px;
@@ -80,6 +81,7 @@ st.markdown("""
         color: #e2e8f0;
     }
     .biased-summary-box {
+        min-height: 180px;
         background: #1a0a0a;
         border-left: 4px solid #ef4444;
         border-radius: 8px;
