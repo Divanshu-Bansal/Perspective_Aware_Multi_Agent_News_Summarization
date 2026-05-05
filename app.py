@@ -619,18 +619,24 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
             st.caption("This aggregates multiple sources for broader perspective coverage.")
 
     if missing:
+        what_this_shows = (
+            f"<strong>What this shows:</strong> The single-source summary only reflects the "
+            f"<strong>{biased_result['perspective']}</strong> perspective from one outlet. "
+            f"The multi-source summary incorporates "
+            f"<strong>{', '.join(missing)}</strong> additional viewpoints, "
+            f"giving a broader picture of how this topic is being covered."
+        )
+
         st.markdown(
             f"""
             <div style="margin-top:1rem;background:#2a2412;border:1px solid #7c6a2a;
                         border-radius:12px;padding:1rem 1.2rem;color:#f3e7b3;line-height:1.7;">
-                f'<strong>What this shows:</strong> The single-source summary only reflects the '
-                f'<strong>{biased_result["perspective"]}</strong> perspective from one outlet. '
-                f'The multi-source summary incorporates <strong>{", ".join(missing)}</strong> '
-                f'additional viewpoints, giving a broader picture of how this topic is being covered.'
+                {what_this_shows}
             </div>
             """,
             unsafe_allow_html=True,
         )
+
     else:
         st.markdown(
             """
@@ -675,6 +681,7 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
 # ─────────────────────────────────────────────────────────────
 # Sidebar UI
 # ─────────────────────────────────────────────────────────────
+
 with st.sidebar:
     st.markdown("## Settings")
     is_cloud     = os.getenv("IS_STREAMLIT_CLOUD") == "true"
