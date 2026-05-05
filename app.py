@@ -449,15 +449,15 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
 
     st.divider()
 
-    # ── Step 4: Biased vs Neutral Summary Comparison ──
+        # ── Step 4: Biased vs Neutral Summary Comparison ──
     st.markdown(
         '<div class="step-header">Step 4 — Biased vs. Neutral Summary</div>',
         unsafe_allow_html=True
     )
 
-    biased_result   = generate_biased_summary(source_summaries, comparison_result)
+    biased_result = generate_biased_summary(source_summaries, comparison_result)
     neutral_summary = generate_neutral_summary(source_summaries, comparison_result, topic=topic)
-    summary_text    = extract_summary_text(neutral_summary)
+    summary_text = extract_summary_text(neutral_summary)
 
     log_final_summary(task, neutral_summary, topic)
 
@@ -469,24 +469,21 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
     missing = biased_result.get("missing_perspectives", [])
     missing_count = len(missing)
 
-    # Intro
     st.info(
         "💡 This section compares what a reader gets from one high-relevance source "
         "versus a summary built from multiple perspectives."
     )
 
-    # Comparison stats row
-    s1, s2, s3 = st.columns(3)
-    s1.metric("Source coverage", "1 source", f"vs {len(source_summaries)} sources")
-    s2.metric("Perspective coverage", "1 perspective", f"vs {diversity} viewpoints")
-    s3.metric("Coverage gap", f"{missing_count} missing", "in biased version")
+    stat1, stat2, stat3 = st.columns(3)
+    stat1.metric("Source coverage", "1 source", f"vs {len(source_summaries)} sources")
+    stat2.metric("Perspective coverage", "1 perspective", f"vs {diversity} viewpoints")
+    stat3.metric("Coverage gap", f"{missing_count} missing", "in biased version")
 
     st.markdown("### Comparison view")
 
     col_biased, col_neutral = st.columns(2)
 
     with col_biased:
-        b_color = PERSPECTIVE_COLORS.get(biased_result["perspective"], "#6b7280")
         st.markdown(
             """
             <div style="font-size:0.82rem;font-weight:800;letter-spacing:0.08em;
@@ -497,53 +494,40 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
             unsafe_allow_html=True,
         )
 
-        st.markdown(
-            f"""
-            <div style="background:#1b0b0b;border:1px solid #5b1a1a;border-radius:12px;
-                        padding:1rem 1rem 1.1rem 1rem;min-height:360px;">
-                <div style="font-size:0.8rem;color:#aaa;margin-bottom:0.6rem;">
-                    <strong>Source:</strong> {biased_result["source"]} ({biased_result["api"]})<br>
-                    <strong>Perspective:</strong> <span style="color:{b_color};font-weight:700;">{biased_result["perspective"]}</span><br>
-                    <strong>Relevance:</strong> {biased_result["relevance"]:.2f}<br>
-                    <strong>Coverage:</strong> 1 of {len(source_summaries)} articles
-                </div>
-
-                <div style="background:#140707;border-left:4px solid #ef4444;border-radius:10px;
-                            padding:1.2rem;min-height:170px;color:#f3f4f6;
-                            font-size:1.02rem;line-height:1.8;">
-                    {biased_result["summary"]}
-                </div>
-
-                <div style="margin-top:0.9rem;font-size:0.8rem;color:#aaa;">
-                    This version reflects the framing of a single outlet only.
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        if missing:
-            chips = " ".join(
-                f'<span style="display:inline-block;background:#3f1a1a;color:#fca5a5;'
-                f'border:1px solid #ef444455;border-radius:20px;padding:3px 10px;'
-                f'font-size:0.75rem;margin:3px;">{p}</span>'
-                for p in missing
+        with st.container(border=True):
+            st.caption(
+                f"Source: {biased_result['source']} ({biased_result['api']})\n"
+                f"Perspective: {biased_result['perspective']}\n"
+                f"Relevance: {biased_result['relevance']:.2f}\n"
+                f"Coverage: 1 of {len(source_summaries)} articles"
             )
+
             st.markdown(
                 f"""
-                <div style="margin-top:0.7rem;font-size:0.8rem;color:#999;">
-                    <strong>Missing perspectives:</strong><br>{chips}
+                <div style="background:#140707;border-left:4px solid #ef4444;border-radius:10px;
+                            padding:1.2rem;color:#f3f4f6;font-size:1.02rem;line-height:1.8;">
+                    {biased_result["summary"]}
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
-    with col_neutral:
-        all_persp_str = " · ".join(
-            f'<span style="color:{PERSPECTIVE_COLORS.get(p, "#6b7280")};font-weight:700;">{p}</span>'
-            for p in perspective_counts
-        )
+            if missing:
+                chips = " ".join(
+                    f'<span style="display:inline-block;background:#3f1a1a;color:#fca5a5;'
+                    f'border:1px solid #ef444455;border-radius:20px;padding:3px 10px;'
+                    f'font-size:0.75rem;margin:3px;">{p}</span>'
+                    for p in missing
+                )
+                st.markdown(
+                    f'<div style="margin-top:0.7rem;font-size:0.8rem;color:#999;">'
+                    f'<strong>Missing perspectives:</strong><br>{chips}</div>',
+                    unsafe_allow_html=True,
+                )
 
+            st.caption("This version reflects the framing of a single outlet only.")
+
+    with col_neutral:
         st.markdown(
             """
             <div style="font-size:0.82rem;font-weight:800;letter-spacing:0.08em;
@@ -554,32 +538,31 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
             unsafe_allow_html=True,
         )
 
-        st.markdown(
-            f"""
-            <div style="background:#081425;border:1px solid #173a2f;border-radius:12px;
-                        padding:1rem 1rem 1.1rem 1rem;min-height:360px;">
-                <div style="font-size:0.8rem;color:#aaa;margin-bottom:0.6rem;">
-                    <strong>Sources:</strong> {len(source_summaries)} articles<br>
-                    <strong>Perspectives:</strong> {diversity} unique viewpoints<br>
-                    <strong>Coverage:</strong> {all_persp_str}<br>
-                    <strong>Method:</strong> Multi-source sentence ranking
-                </div>
-
-                <div style="background:#07101f;border-left:4px solid #22c55e;border-radius:10px;
-                            padding:1.2rem;min-height:170px;color:#f3f4f6;
-                            font-size:1.02rem;line-height:1.8;">
-                    {summary_text}
-                </div>
-
-                <div style="margin-top:0.9rem;font-size:0.8rem;color:#aaa;">
-                    This version combines multiple sources to reduce one-sided framing.
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        all_persp_str = " · ".join(
+            f'<span style="color:{PERSPECTIVE_COLORS.get(p, "#6b7280")};font-weight:700;">{p}</span>'
+            for p in perspective_counts
         )
 
-    # Interpretation panel
+        with st.container(border=True):
+            st.caption(
+                f"Sources: {len(source_summaries)} articles\n"
+                f"Perspectives: {diversity} unique viewpoints\n"
+                f"Coverage: {all_persp_str}\n"
+                f"Method: Multi-source sentence ranking"
+            )
+
+            st.markdown(
+                f"""
+                <div style="background:#07101f;border-left:4px solid #22c55e;border-radius:10px;
+                            padding:1.2rem;color:#f3f4f6;font-size:1.02rem;line-height:1.8;">
+                    {summary_text}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.caption("This version combines multiple sources to reduce one-sided framing.")
+
     if missing:
         st.markdown(
             f"""
