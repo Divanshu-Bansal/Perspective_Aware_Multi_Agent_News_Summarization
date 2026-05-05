@@ -544,11 +544,14 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
         )
 
         with st.container(border=True):
-            st.caption(
-                f"Sources: {len(source_summaries)} articles\n"
-                f"Perspectives: {diversity} unique viewpoints\n"
-                f"Coverage: {all_persp_str}\n"
-                f"Method: Multi-source sentence ranking"
+            st.markdown(
+                f'<div style="font-size:0.8rem;color:#888;line-height:1.8;">'
+                f'<b>Sources:</b> {len(source_summaries)} articles<br>'
+                f'<b>Perspectives:</b> {diversity} unique viewpoints<br>'
+                f'<b>Coverage:</b> {all_persp_str}<br>'
+                f'<b>Method:</b> Multi-source sentence ranking'
+                f'</div>',
+                unsafe_allow_html=True,
             )
 
             st.markdown(

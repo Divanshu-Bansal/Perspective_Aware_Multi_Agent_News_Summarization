@@ -115,85 +115,52 @@ def _bias_warning(perspectives: list[dict]) -> str | None:
 # Biased summary generator
 # ─────────────────────────────────────────────────────────────
 
-#TODO
-# def generate_biased_summary(
-#     source_summaries: list[dict],
-#     comparison_result: dict | None = None,
-# ) -> dict:
-#     """
-#     Generates a biased summary from the single highest-relevance article.
-
-#     This intentionally represents what a reader gets when they rely on
-#     only one outlet — no aggregation, no perspective balancing.
-
-#     Args:
-#         source_summaries (list[dict]): Processed articles with relevance scores
-#         comparison_result (dict, optional): Output from compare_summaries()
-
-#     Returns:
-#         dict: {
-#             "summary":               str   — the biased summary text,
-#             "source":                str   — outlet name,
-#             "api":                   str   — API provider,
-#             "title":                 str   — article title,
-#             "url":                   str   — article URL,
-#             "perspective":           str   — perspective category of this source,
-#             "relevance":             float — relevance score,
-#             "missing_perspectives":  list[str] — perspectives ignored by this source,
-#         }
-#     """
-#     if not source_summaries:
-#         return {
-#             "summary": "No articles available.",
-#             "source": "", "api": "", "title": "",
-#             "url": "", "perspective": "", "relevance": 0.0,
-#             "missing_perspectives": [],
-#         }
-
-#     # Pick the single highest-relevance article
-#     top_article = max(source_summaries, key=lambda x: x.get("relevance_score", 0))
-
-#     # Determine which perspectives this single source misses
-#     all_perspectives = set()
-#     if comparison_result:
-#         for p in comparison_result.get("perspectives", []):
-#             all_perspectives.add(p.get("perspective", "General"))
-
-#     top_perspective = top_article.get("perspective", "General")
-#     missing = sorted(all_perspectives - {top_perspective})
-
-#     return {
-#         "summary":              top_article.get("summary", ""),
-#         "source":               top_article.get("source", "Unknown"),
-#         "api":                  top_article.get("api", "Unknown"),
-#         "title":                top_article.get("title", ""),
-#         "url":                  top_article.get("url", ""),
-#         "perspective":          top_perspective,
-#         "relevance":            top_article.get("relevance_score", 0.0),
-#         "missing_perspectives": missing,
-#     }
-
-
 def generate_biased_summary(
     source_summaries: list[dict],
     comparison_result: dict | None = None,
 ) -> dict:
     """
     Generates a biased summary from the single highest-relevance article.
-    Falls back to next best article if top article summary is too short.
+
+    This intentionally represents what a reader gets when they rely on
+    only one outlet — no aggregation, no perspective balancing.
+
+    Args:
+        source_summaries (list[dict]): Processed articles with relevance scores
+        comparison_result (dict, optional): Output from compare_summaries()
+
+    Returns:
+        dict: {
+            "summary":               str   — the biased summary text,
+            "source":                str   — outlet name,
+            "api":                   str   — API provider,
+            "title":                 str   — article title,
+            "url":                   str   — article URL,
+            "perspective":           str   — perspective category of this source,
+            "relevance":             float — relevance score,
+            "missing_perspectives":  list[str] — perspectives ignored by this source,
+        }
     """
     if not source_summaries:
         return {
-            "summary": "No articles available.",
-            "source": "", "api": "", "title": "",
-            "url": "", "perspective": "", "relevance": 0.0,
+            "summary":              "No articles available.",
+            "source":               "",
+            "api":                  "",
+            "title":                "",
+            "url":                  "",
+            "perspective":          "",
+            "relevance":            0.0,
             "missing_perspectives": [],
         }
 
-    # Sort by relevance descending
-    ranked = sorted(source_summaries, key=lambda x: x.get("relevance_score", 0), reverse=True)
+    # Sort by relevance score descending
+    ranked = sorted(
+        source_summaries,
+        key=lambda x: x.get("relevance_score", 0),
+        reverse=True
+    )
 
-    # Pick best article with a meaningful summary (at least 20 words)
+    # Pick the best article that has a meaningful summary (at least 20 words)
     top_article = None
     for candidate in ranked:
         summary = candidate.get("summary", "")
@@ -201,21 +168,41 @@ def generate_biased_summary(
             top_article = candidate
             break
 
-    # Final fallback — just use the top one regardless
+    # Final fallback — use the top ranked article regardless of summary length
     if not top_article:
         top_article = ranked[0]
 
-    # Determine missing perspectives
+    # Clean up the summary text
+    summary_text = top_article.get("summary", "")
+
+    # Remove NewsAPI truncation markers like [+2145 chars]
+    summary_text = re.sub(r'\[\+\d+\s*chars?\]', '', summary_text).strip()
+
+    # Remove trailing ellipsis artifacts
+    summary_text = re.sub(r'\s*\.\.\.\s*$', '.', summary_text).strip()
+
+    # Remove any double spaces created by cleanup
+    summary_text = re.sub(r'\s+', ' ', summary_text).strip()
+
+    # Ensure summary ends with proper punctuation
+    if summary_text and summary_text[-1] not in '.!?':
+        summary_text = summary_text + '.'
+
+    # Determine which perspectives this single source misses
     all_perspectives = set()
     if comparison_result:
         for p in comparison_result.get("perspectives", []):
-            all_perspectives.add(p.get("perspective", "General"))
+            ptype = p.get("perspective", "General")
+            if ptype:
+                all_perspectives.add(ptype)
 
     top_perspective = top_article.get("perspective", "General")
+
+    # Missing = all perspectives in the full set minus the one this source covers
     missing = sorted(all_perspectives - {top_perspective})
 
     return {
-        "summary":              top_article.get("summary", ""),
+        "summary":              summary_text,
         "source":               top_article.get("source", "Unknown"),
         "api":                  top_article.get("api", "Unknown"),
         "title":                top_article.get("title", ""),
@@ -224,7 +211,6 @@ def generate_biased_summary(
         "relevance":            top_article.get("relevance_score", 0.0),
         "missing_perspectives": missing,
     }
-
 
 # ─────────────────────────────────────────────────────────────
 # UNCHANGED: Neutral summary generator
