@@ -91,6 +91,9 @@ st.markdown("""
         margin-top: 1rem;
         color: #e2e8f0;
     }
+    .step-comparison-card {
+        min-height: 360px;
+    }
     .summary-label {
         font-size: 0.78rem;
         font-weight: 700;
@@ -447,12 +450,9 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
     st.divider()
 
     # ── Step 4: Biased vs Neutral Summary Comparison ──
-    st.markdown('<div class="step-header">Step 4 — Biased vs. Neutral Summary</div>', unsafe_allow_html=True)
-
-    st.info(
-        "💡 **Why this comparison matters:** The biased summary shows what a reader gets from "
-        "a single outlet. The neutral summary aggregates all sources for a balanced view. "
-        "Spot what gets left out."
+    st.markdown(
+        '<div class="step-header">Step 4 — Biased vs. Neutral Summary</div>',
+        unsafe_allow_html=True
     )
 
     biased_result   = generate_biased_summary(source_summaries, comparison_result)
@@ -461,72 +461,233 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
 
     log_final_summary(task, neutral_summary, topic)
 
+    perspective_counts = {}
+    for p in perspectives:
+        ptype = p.get("perspective", "General")
+        perspective_counts[ptype] = perspective_counts.get(ptype, 0) + 1
+
+    missing = biased_result.get("missing_perspectives", [])
+    missing_count = len(missing)
+
+    # Intro
+    st.info(
+        "💡 This section compares what a reader gets from one high-relevance source "
+        "versus a summary built from multiple perspectives."
+    )
+
+    # Comparison stats row
+    s1, s2, s3 = st.columns(3)
+    s1.metric("Source coverage", "1 source", f"vs {len(source_summaries)} sources")
+    s2.metric("Perspective coverage", "1 perspective", f"vs {diversity} viewpoints")
+    s3.metric("Coverage gap", f"{missing_count} missing", "in biased version")
+
+    st.markdown("### Comparison view")
+
     col_biased, col_neutral = st.columns(2)
 
-    # ── Left: Biased ──
     with col_biased:
         b_color = PERSPECTIVE_COLORS.get(biased_result["perspective"], "#6b7280")
-        st.markdown('<div class="summary-label biased-label">⚠️ Biased Summary</div>', unsafe_allow_html=True)
         st.markdown(
-            f'<div class="comparison-meta">'
-            f'<b>Source:</b> {biased_result["source"]} ({biased_result["api"]})<br>'
-            f'<b>Perspective:</b> <span style="color:{b_color};font-weight:600;">'
-            f'{biased_result["perspective"]}</span><br>'
-            f'<b>Relevance score:</b> {biased_result["relevance"]:.2f}<br>'
-            f'<b>Articles used:</b> 1 of {len(source_summaries)}'
-            f'</div>',
+            """
+            <div style="font-size:0.82rem;font-weight:800;letter-spacing:0.08em;
+                        text-transform:uppercase;color:#ef4444;margin-bottom:0.6rem;">
+                ⚠️ Biased Summary
+            </div>
+            """,
             unsafe_allow_html=True,
         )
+
         st.markdown(
-            f'<div class="biased-summary-box">{biased_result["summary"]}</div>',
+            f"""
+            <div style="background:#1b0b0b;border:1px solid #5b1a1a;border-radius:12px;
+                        padding:1rem 1rem 1.1rem 1rem;min-height:360px;">
+                <div style="font-size:0.8rem;color:#aaa;margin-bottom:0.6rem;">
+                    <strong>Source:</strong> {biased_result["source"]} ({biased_result["api"]})<br>
+                    <strong>Perspective:</strong> <span style="color:{b_color};font-weight:700;">{biased_result["perspective"]}</span><br>
+                    <strong>Relevance:</strong> {biased_result["relevance"]:.2f}<br>
+                    <strong>Coverage:</strong> 1 of {len(source_summaries)} articles
+                </div>
+
+                <div style="background:#140707;border-left:4px solid #ef4444;border-radius:10px;
+                            padding:1.2rem;min-height:170px;color:#f3f4f6;
+                            font-size:1.02rem;line-height:1.8;">
+                    {biased_result["summary"]}
+                </div>
+
+                <div style="margin-top:0.9rem;font-size:0.8rem;color:#aaa;">
+                    This version reflects the framing of a single outlet only.
+                </div>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
-        missing = biased_result.get("missing_perspectives", [])
+
         if missing:
             chips = " ".join(
-                f'<span class="missing-perspective-chip">{p}</span>' for p in missing
+                f'<span style="display:inline-block;background:#3f1a1a;color:#fca5a5;'
+                f'border:1px solid #ef444455;border-radius:20px;padding:3px 10px;'
+                f'font-size:0.75rem;margin:3px;">{p}</span>'
+                for p in missing
             )
             st.markdown(
-                f'<div style="margin-top:0.6rem;font-size:0.78rem;color:#aaa;">'
-                f'Perspectives ignored: {chips}</div>',
+                f"""
+                <div style="margin-top:0.7rem;font-size:0.8rem;color:#999;">
+                    <strong>Missing perspectives:</strong><br>{chips}
+                </div>
+                """,
                 unsafe_allow_html=True,
             )
 
-    # ── Right: Neutral ──
     with col_neutral:
         all_persp_str = " · ".join(
-            f'<span style="color:{PERSPECTIVE_COLORS.get(p,"#6b7280")};font-weight:600;">{p}</span>'
+            f'<span style="color:{PERSPECTIVE_COLORS.get(p, "#6b7280")};font-weight:700;">{p}</span>'
             for p in perspective_counts
         )
-        st.markdown('<div class="summary-label neutral-label">✅ Neutral Summary</div>', unsafe_allow_html=True)
+
         st.markdown(
-            f'<div class="comparison-meta">'
-            f'<b>Sources:</b> {len(source_summaries)} articles<br>'
-            f'<b>Perspectives covered:</b> {all_persp_str}<br>'
-            f'<b>Diversity score:</b> {diversity} unique viewpoints<br>'
-            f'<b>Method:</b> TF-IDF extraction + sentence ranking'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f'<div class="neutral-summary-box">{summary_text}</div>',
+            """
+            <div style="font-size:0.82rem;font-weight:800;letter-spacing:0.08em;
+                        text-transform:uppercase;color:#22c55e;margin-bottom:0.6rem;">
+                ✅ Neutral Summary
+            </div>
+            """,
             unsafe_allow_html=True,
         )
 
-    # ── Bias gap warning ──
-    missing = biased_result.get("missing_perspectives", [])
+        st.markdown(
+            f"""
+            <div style="background:#081425;border:1px solid #173a2f;border-radius:12px;
+                        padding:1rem 1rem 1.1rem 1rem;min-height:360px;">
+                <div style="font-size:0.8rem;color:#aaa;margin-bottom:0.6rem;">
+                    <strong>Sources:</strong> {len(source_summaries)} articles<br>
+                    <strong>Perspectives:</strong> {diversity} unique viewpoints<br>
+                    <strong>Coverage:</strong> {all_persp_str}<br>
+                    <strong>Method:</strong> Multi-source sentence ranking
+                </div>
+
+                <div style="background:#07101f;border-left:4px solid #22c55e;border-radius:10px;
+                            padding:1.2rem;min-height:170px;color:#f3f4f6;
+                            font-size:1.02rem;line-height:1.8;">
+                    {summary_text}
+                </div>
+
+                <div style="margin-top:0.9rem;font-size:0.8rem;color:#aaa;">
+                    This version combines multiple sources to reduce one-sided framing.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # Interpretation panel
     if missing:
-        st.warning(
-            f"⚠️ **Bias gap detected:** The single-source summary only reflects the "
-            f"**{biased_result['perspective']}** perspective. "
-            f"Missing viewpoints: **{', '.join(missing)}**."
+        st.markdown(
+            f"""
+            <div style="margin-top:1rem;background:#2a2412;border:1px solid #7c6a2a;
+                        border-radius:12px;padding:1rem 1.2rem;color:#f3e7b3;line-height:1.7;">
+                <strong>Interpretation:</strong> The single-source summary narrows the topic to the
+                <strong>{biased_result["perspective"]}</strong> frame, while the neutral version restores
+                missing context from <strong>{", ".join(missing)}</strong> perspectives.
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
     else:
-        st.success(
-            "✅ The top-ranked source aligns with the dominant perspective across all articles."
+        st.markdown(
+            """
+            <div style="margin-top:1rem;background:#10261a;border:1px solid #27543b;
+                        border-radius:12px;padding:1rem 1.2rem;color:#c7f3d5;line-height:1.7;">
+                <strong>Interpretation:</strong> In this case, the highest-relevance source is already
+                close to the broader multi-source framing.
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
     st.divider()
+
+    #TODO
+    # # ── Step 4: Biased vs Neutral Summary Comparison ──
+    # st.markdown('<div class="step-header">Step 4 — Biased vs. Neutral Summary</div>', unsafe_allow_html=True)
+
+    # st.info(
+    #     "💡 **Why this comparison matters:** The biased summary shows what a reader gets from "
+    #     "a single outlet. The neutral summary aggregates all sources for a balanced view. "
+    #     "Spot what gets left out."
+    # )
+
+    # biased_result   = generate_biased_summary(source_summaries, comparison_result)
+    # neutral_summary = generate_neutral_summary(source_summaries, comparison_result, topic=topic)
+    # summary_text    = extract_summary_text(neutral_summary)
+
+    # log_final_summary(task, neutral_summary, topic)
+
+    # col_biased, col_neutral = st.columns(2)
+
+    # # ── Left: Biased ──
+    # with col_biased:
+    #     b_color = PERSPECTIVE_COLORS.get(biased_result["perspective"], "#6b7280")
+    #     st.markdown('<div class="summary-label biased-label">⚠️ Biased Summary</div>', unsafe_allow_html=True)
+    #     st.markdown(
+    #         f'<div class="comparison-meta">'
+    #         f'<b>Source:</b> {biased_result["source"]} ({biased_result["api"]})<br>'
+    #         f'<b>Perspective:</b> <span style="color:{b_color};font-weight:600;">'
+    #         f'{biased_result["perspective"]}</span><br>'
+    #         f'<b>Relevance score:</b> {biased_result["relevance"]:.2f}<br>'
+    #         f'<b>Articles used:</b> 1 of {len(source_summaries)}'
+    #         f'</div>',
+    #         unsafe_allow_html=True,
+    #     )
+    #     st.markdown(
+    #         f'<div class="biased-summary-box">{biased_result["summary"]}</div>',
+    #         unsafe_allow_html=True,
+    #     )
+    #     missing = biased_result.get("missing_perspectives", [])
+    #     if missing:
+    #         chips = " ".join(
+    #             f'<span class="missing-perspective-chip">{p}</span>' for p in missing
+    #         )
+    #         st.markdown(
+    #             f'<div style="margin-top:0.6rem;font-size:0.78rem;color:#aaa;">'
+    #             f'Perspectives ignored: {chips}</div>',
+    #             unsafe_allow_html=True,
+    #         )
+
+    # # ── Right: Neutral ──
+    # with col_neutral:
+    #     all_persp_str = " · ".join(
+    #         f'<span style="color:{PERSPECTIVE_COLORS.get(p,"#6b7280")};font-weight:600;">{p}</span>'
+    #         for p in perspective_counts
+    #     )
+    #     st.markdown('<div class="summary-label neutral-label">✅ Neutral Summary</div>', unsafe_allow_html=True)
+    #     st.markdown(
+    #         f'<div class="comparison-meta">'
+    #         f'<b>Sources:</b> {len(source_summaries)} articles<br>'
+    #         f'<b>Perspectives covered:</b> {all_persp_str}<br>'
+    #         f'<b>Diversity score:</b> {diversity} unique viewpoints<br>'
+    #         f'<b>Method:</b> TF-IDF extraction + sentence ranking'
+    #         f'</div>',
+    #         unsafe_allow_html=True,
+    #     )
+    #     st.markdown(
+    #         f'<div class="neutral-summary-box">{summary_text}</div>',
+    #         unsafe_allow_html=True,
+    #     )
+
+    # # ── Bias gap warning ──
+    # missing = biased_result.get("missing_perspectives", [])
+    # if missing:
+    #     st.warning(
+    #         f"⚠️ **Bias gap detected:** The single-source summary only reflects the "
+    #         f"**{biased_result['perspective']}** perspective. "
+    #         f"Missing viewpoints: **{', '.join(missing)}**."
+    #     )
+    # else:
+    #     st.success(
+    #         "✅ The top-ranked source aligns with the dominant perspective across all articles."
+    #     )
+
+    # st.divider()
 
     # ── Step 5: Export ──
     output_dir  = Path("outputs/summaries")
