@@ -240,22 +240,62 @@ def article_card_html(
     summary: str, score: float,
     perspective: str = "", summarizing: bool = False,
 ) -> str:
+    """Build a consistent article card HTML string."""
+    
+    # Title with optional link
+    title_escaped = title.replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
     title_html = (
-        f'<a href="{url}" target="_blank" style="color:white;text-decoration:none;">{title}</a>'
-        if url else title
+        f'<a href="{url}" target="_blank" '
+        f'style="color:white;text-decoration:none;">{title_escaped}</a>'
+        if url else title_escaped
     )
-    summary_html = (
-        '<div class="article-summary" style="color:#666;font-style:italic;">Summarizing...</div>'
-        if summarizing
-        else f'<div class="article-summary">{summary}</div>'
-    )
-    badge_html = perspective_badge_html(perspective) if perspective and not summarizing else ""
+    
+    # Summary section
+    if summarizing:
+        summary_html = (
+            '<div class="article-summary" '
+            'style="color:#666;font-style:italic;">Summarizing...</div>'
+        )
+    else:
+        # Escape summary text to prevent any HTML injection
+        summary_escaped = (summary
+            .replace('&', '&amp;')
+            .replace('<', '&lt;')
+            .replace('>', '&gt;')
+        )
+        summary_html = f'<div class="article-summary">{summary_escaped}</div>'
+    
+    # Perspective badge — only shown when perspective is known and card is complete
+    badge_html = ""
+    if perspective and not summarizing:
+        color = PERSPECTIVE_COLORS.get(perspective, "#6b7280")
+        badge_html = (
+            f'<div style="margin-top:6px;">'
+            f'<span style="background:{color}22;color:{color};'
+            f'border:1px solid {color}55;border-radius:20px;'
+            f'padding:2px 10px;font-size:0.75rem;font-weight:600;">'
+            f'{perspective}</span>'
+            f'</div>'
+        )
+    
+    # Relevance bar
+    width = int(score * 100)
+    bar_html = f"""
+    <div style="background:#333;border-radius:3px;height:6px;margin-top:8px;">
+        <div style="width:{width}%;height:6px;border-radius:3px;
+                    background:linear-gradient(90deg,#4ade80,#22d3ee);"></div>
+    </div>
+    <div style="font-size:0.75rem;color:#aaa;margin-top:2px;">
+        Relevance: {score:.2f}
+    </div>
+    """
+    
     return f"""
     <div class="article-card">
         <div class="article-source">{source} &nbsp;·&nbsp; {api}</div>
         <div class="article-title">{title_html}</div>
         {summary_html}
-        {relevance_bar_html(score)}
+        {bar_html}
         {badge_html}
     </div>
     """
