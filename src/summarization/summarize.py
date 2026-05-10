@@ -1,4 +1,5 @@
 import os
+import re
 import torch
 from transformers import pipeline
 
@@ -76,6 +77,47 @@ def chunk_text(text: str, max_words: int = 400):
         yield " ".join(words[i:i + max_words])
 
 
+def finish_at_sentence_boundary(text: str) -> str:
+    """
+    Removes incomplete final fragments and ensures the summary ends cleanly.
+    """
+    if not text:
+        return ""
+
+    text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"\[\+\d+\s*chars?\]", "", text).strip()
+    text = re.sub(r"\s*\.\.\.\s*$", ".", text).strip()
+
+    matches = list(re.finditer(r"[.!?]", text))
+    if matches:
+        last_end = matches[-1].end()
+        text = text[:last_end].strip()
+
+    if text and text[-1] not in ".!?":
+        text += "."
+
+    return text
+
+
+def is_probably_truncated(text: str) -> bool:
+    """
+    Detects API snippets that are not full articles.
+    """
+    if not text:
+        return True
+
+    markers = [
+        "[+",
+        "chars",
+        "…",
+        "...",
+        "Listen to This Article",
+        "Photo:",
+    ]
+
+    return any(marker.lower() in text.lower() for marker in markers)
+
+
 def summarize_article(text: str) -> str:
     """
     Generates a summary for a given article.
@@ -134,7 +176,8 @@ def summarize_article(text: str) -> str:
             print(f"Summarization error: {e}")
 
             # Use truncated raw text as fallback
-            summaries.append(chunk[:300])
+            summaries.append(finish_at_sentence_boundary(chunk[:500]))
 
     # Combine all chunk summaries into final output
-    return " ".join(summaries)
+    combined = " ".join(summaries)
+    return finish_at_sentence_boundary(combined)

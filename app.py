@@ -498,9 +498,9 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
 
     st.divider()
 
-        # ── Step 4: Single-Source vs. Multi-Source Summary Comparison ──
+        # ── Step 4 — Single-Source Summary vs. Multi-Source Synthesis ──
     st.markdown(
-        '<div class="step-header">Step 4 — Single-Source vs. Multi-Source Summary</div>',
+        '<div class="step-header">Step 4 — Single-Source Summary vs. Multi-Source Synthesis</div>',
         unsafe_allow_html=True
     )
 
@@ -584,7 +584,7 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
             """
             <div style="font-size:0.82rem;font-weight:800;letter-spacing:0.08em;
                         text-transform:uppercase;color:#22c55e;margin-bottom:0.6rem;">
-                🌐 Multi-Source Summary
+                🌐 Multi-Source Synthesis
             </div>
             """,
             unsafe_allow_html=True,
@@ -601,7 +601,7 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
                 f'<b>Sources:</b> {len(source_summaries)} articles<br>'
                 f'<b>Perspectives:</b> {diversity} unique viewpoints<br>'
                 f'<b>Coverage:</b> {all_persp_str}<br>'
-                f'<b>Method:</b> Multi-source sentence ranking'
+                f'<b>Method:</b> Multi-source perspective-balanced synthesis'
                 f'</div>',
                 unsafe_allow_html=True,
             )
@@ -616,13 +616,13 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
                 unsafe_allow_html=True,
             )
 
-            st.caption("This aggregates multiple sources for broader perspective coverage.")
+            st.caption("This synthesises multiple independent sources to reduce single-outlet dominance.")
 
     if missing:
         what_this_shows = (
             f"<strong>What this shows:</strong> The single-source summary only reflects the "
             f"<strong>{biased_result['perspective']}</strong> perspective from one outlet. "
-            f"The multi-source summary incorporates "
+            f"The Multi-Source Synthesis incorporates "
             f"<strong>{', '.join(missing)}</strong> additional viewpoints, "
             f"giving a broader picture of how this topic is being covered."
         )

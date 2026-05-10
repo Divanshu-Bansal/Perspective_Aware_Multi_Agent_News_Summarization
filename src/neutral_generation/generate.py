@@ -232,9 +232,15 @@ def generate_neutral_summary(
         similarity_method     = comparison_result.get("similarity_method", "tf-idf + cosine similarity")
         perspective_diversity = comparison_result.get("perspective_diversity", 1)
 
-    neutral_summary = _extract_best_sentences(valid_summaries, topic, max_sentences=4)
+    neutral_summary = generate_multi_source_synthesis(
+        valid_summaries,
+        comparison_result=comparison_result,
+        topic=topic,
+        max_sentences=6,
+    )
+
     if not neutral_summary:
-        neutral_summary = valid_summaries[0].get("summary", "")[:400]
+        neutral_summary = _safe_finish(valid_summaries[0].get("summary", "")[:600])
 
     divider = "─" * 50
     output  = []
@@ -293,3 +299,106 @@ def generate_neutral_summary(
 
     output.append("=" * 50)
     return "\n".join(output)
+
+def _safe_finish(text: str) -> str:
+    text = re.sub(r"\s+", " ", text or "").strip()
+    text = re.sub(r"\[\+\d+\s*chars?\]", "", text).strip()
+    text = re.sub(r"\s*\.\.\.\s*$", ".", text).strip()
+
+    matches = list(re.finditer(r"[.!?]", text))
+    if matches:
+        text = text[:matches[-1].end()].strip()
+
+    if text and text[-1] not in ".!?":
+        text += "."
+
+    return text
+
+
+def generate_multi_source_synthesis(
+    source_summaries: list[dict],
+    comparison_result: dict | None = None,
+    topic: str = "",
+    max_sentences: int = 6,
+) -> str:
+    """
+    Creates a readable synthesis from multiple independent sources.
+    This is still extractive, but it balances source and perspective coverage.
+    """
+    if not source_summaries:
+        return "No summaries available."
+
+    valid = [item for item in source_summaries if item.get("summary")]
+    if topic:
+        valid = _topic_guard(valid, topic)
+
+    if not valid:
+        return "No valid source summaries available."
+
+    # Attach perspective information
+    perspective_lookup = {}
+    if comparison_result:
+        for p in comparison_result.get("perspectives", []):
+            perspective_lookup[p.get("source")] = p.get("perspective", "General")
+
+    selected = []
+    seen_sources = set()
+    seen_perspectives = set()
+    seen_fingerprints = set()
+
+    ranked = sorted(
+        valid,
+        key=lambda x: x.get("relevance_score", 0),
+        reverse=True,
+    )
+
+    # First pass: try to include different perspectives
+    for item in ranked:
+        source = item.get("source", "Unknown")
+        perspective = item.get("perspective") or perspective_lookup.get(source, "General")
+
+        if source in seen_sources:
+            continue
+
+        sentences = re.split(r"(?<=[.!?])\s+", item.get("summary", ""))
+        clean_sentences = []
+
+        for sentence in sentences:
+            sentence = _clean_sentence(sentence)
+            words = sentence.split()
+
+            if len(words) < 8 or len(words) > 45:
+                continue
+
+            if sentence.endswith("..."):
+                continue
+
+            fingerprint = " ".join(sentence.lower().split()[:8])
+            if fingerprint in seen_fingerprints:
+                continue
+
+            clean_sentences.append(sentence)
+
+        if not clean_sentences:
+            continue
+
+        # Prefer the first strong sentence from each source
+        selected.append({
+            "text": clean_sentences[0],
+            "source": source,
+            "perspective": perspective,
+            "score": item.get("relevance_score", 0),
+        })
+
+        seen_sources.add(source)
+        seen_perspectives.add(perspective)
+        seen_fingerprints.add(" ".join(clean_sentences[0].lower().split()[:8]))
+
+        if len(selected) >= max_sentences:
+            break
+
+    # Sort selected sentences by relevance for readability
+    selected.sort(key=lambda x: x["score"], reverse=True)
+
+    synthesis = " ".join(item["text"] for item in selected[:max_sentences])
+    return _safe_finish(synthesis)
