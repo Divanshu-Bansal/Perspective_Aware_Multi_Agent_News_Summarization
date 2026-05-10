@@ -395,11 +395,8 @@ def build_synthesis_paragraph(
     perspectives = perspectives or []
 
     opening = (
-        f"Multiple independent sources provide broader coverage of {topic}, "
-        f"highlighting economic, technological, and social developments."
-        if topic else
-        "Multiple independent sources frame this as a broader political, social, "
-        "and economic issue."
+        f"Coverage across multiple independent sources highlights how {topic} "
+        f"is being discussed from economic, political, technological, and social perspectives."
     )
 
     # Use top 2–3 strongest sentences only
@@ -408,10 +405,22 @@ def build_synthesis_paragraph(
         for item in selected_sentences[:3]
     ]
 
-    body = " ".join(
-        sentence if sentence.endswith(".") else sentence + "."
-        for sentence in body_sentences
-    )
+    compressed_sentences = []
+
+    for sentence in body_sentences:
+        # Remove repeated topic phrase
+        cleaned = re.sub(
+            rf"^{re.escape(topic)}\s*",
+            "",
+            sentence,
+            flags=re.IGNORECASE
+        ).strip()
+
+        compressed_sentences.append(
+            cleaned if cleaned.endswith(".") else cleaned + "."
+        )
+
+    body = " ".join(compressed_sentences)
 
     if perspectives:
         perspective_text = ", ".join(sorted(set(perspectives)))
