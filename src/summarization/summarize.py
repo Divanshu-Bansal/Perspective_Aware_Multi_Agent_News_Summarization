@@ -181,12 +181,17 @@ def summarize_article(text: str) -> str:
             # Remove title-like headline summaries
             summary_text = summary_text.strip()
 
-            # Reject summaries that look like headlines
-            if (
-                len(summary_text.split()) < 18
-                or summary_text.count(":") > 0
-                or "?" in summary_text
-            ):
+            # Remove headline-style prefix if present
+            headline_patterns = [
+                r"^[A-Z][^?]+\?\s*",     # Question headline
+                r"^[A-Z][^:]+:\s*",      # Colon headline
+            ]
+
+            for pattern in headline_patterns:
+                summary_text = re.sub(pattern, "", summary_text).strip()
+
+            # Skip only extremely weak summaries
+            if len(summary_text.split()) < 10:
                 continue
 
             summary_text = finish_at_sentence_boundary(summary_text)
@@ -206,6 +211,21 @@ def summarize_article(text: str) -> str:
             # Use truncated raw text as fallback
             summaries.append(finish_at_sentence_boundary(chunk[:500]))
 
-    # Combine all chunk summaries into final output
-    combined = " ".join(summaries)
+    # Remove duplicate summary sentences
+    seen = set()
+    unique_sentences = []
+
+    for sentence in re.split(r'(?<=[.!?])\s+', " ".join(summaries)):
+        cleaned = sentence.strip()
+
+        fingerprint = " ".join(cleaned.lower().split()[:8])
+
+        if fingerprint in seen:
+            continue
+
+        seen.add(fingerprint)
+        unique_sentences.append(cleaned)
+
+    combined = " ".join(unique_sentences)
+
     return finish_at_sentence_boundary(combined)
