@@ -1,4 +1,5 @@
 import os
+import re
 import torch
 from transformers import pipeline
 
@@ -76,6 +77,54 @@ def chunk_text(text: str, max_words: int = 400):
         yield " ".join(words[i:i + max_words])
 
 
+def finish_at_sentence_boundary(text: str) -> str:
+    """
+    Cleans incomplete summary endings and ensures full sentence output.
+    """
+
+    if not text:
+        return ""
+
+    text = re.sub(r"\[\+\d+\s*chars?\]", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
+
+    # Remove broken trailing fragments
+    text = re.sub(r"\b[A-Za-z]{1,8}$", "", text).strip()
+
+    # Remove trailing ellipsis
+    text = re.sub(r"\.\.\.+$", ".", text).strip()
+
+    # Find last proper sentence ending
+    sentence_matches = list(re.finditer(r"[.!?]", text))
+
+    if sentence_matches:
+        text = text[:sentence_matches[-1].end()].strip()
+
+    if text and text[-1] not in ".!?":
+        text += "."
+
+    return text
+
+
+def is_probably_truncated(text: str) -> bool:
+    """
+    Detects API snippets that are not full articles.
+    """
+    if not text:
+        return True
+
+    markers = [
+        "[+",
+        "chars",
+        "…",
+        "...",
+        "Listen to This Article",
+        "Photo:",
+    ]
+
+    return any(marker.lower() in text.lower() for marker in markers)
+
+
 def summarize_article(text: str) -> str:
     """
     Generates a summary for a given article.
@@ -127,14 +176,56 @@ def summarize_article(text: str) -> str:
                 truncation=True,   # Ensure input fits model limits
             )
 
-            summaries.append(result[0]["summary_text"])
+            summary_text = result[0]["summary_text"]
+
+            # Remove title-like headline summaries
+            summary_text = summary_text.strip()
+
+            # Remove headline-style prefix if present
+            headline_patterns = [
+                r"^[A-Z][^?]+\?\s*",     # Question headline
+                r"^[A-Z][^:]+:\s*",      # Colon headline
+            ]
+
+            for pattern in headline_patterns:
+                summary_text = re.sub(pattern, "", summary_text).strip()
+
+            # Skip only extremely weak summaries
+            if len(summary_text.split()) < 10:
+                continue
+
+            summary_text = finish_at_sentence_boundary(summary_text)
+
+            summaries.append(summary_text)
+
+            # Remove accidental title duplication
+            if len(summary_text.split()) < 18 and "?" in summary_text:
+                continue
+
+            summaries.append(summary_text)
 
         except Exception as e:
             # Fallback mechanism to prevent pipeline failure
             print(f"Summarization error: {e}")
 
             # Use truncated raw text as fallback
-            summaries.append(chunk[:300])
+            summaries.append(finish_at_sentence_boundary(chunk[:500]))
 
-    # Combine all chunk summaries into final output
-    return " ".join(summaries)
+    # Remove duplicate summary sentences
+    seen = set()
+    unique_sentences = []
+
+    for sentence in re.split(r'(?<=[.!?])\s+', " ".join(summaries)):
+        cleaned = sentence.strip()
+
+        fingerprint = " ".join(cleaned.lower().split()[:8])
+
+        if fingerprint in seen:
+            continue
+
+        seen.add(fingerprint)
+        unique_sentences.append(cleaned)
+
+    combined = " ".join(unique_sentences)
+
+    return finish_at_sentence_boundary(combined)

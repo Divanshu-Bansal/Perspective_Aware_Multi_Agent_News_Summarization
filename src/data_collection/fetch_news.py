@@ -80,7 +80,15 @@ def _fetch_newsapi(topic: str, page_size: int = 20) -> list[dict]:
 
         articles = []
         for a in resp.json().get("articles", []):
-            content = a.get("content") or a.get("description") or ""
+            title = a.get("title", "") or ""
+            description = a.get("description", "") or ""
+            content_raw = a.get("content", "") or ""
+
+            content = " ".join([
+                title,
+                description,
+                content_raw
+            ]).strip()
 
             # Filter out low-content articles (noise reduction)
             if len(content) < 150:
@@ -124,7 +132,14 @@ def _fetch_guardian(topic: str, page_size: int = 20) -> list[dict]:
         articles = []
         for a in results:
             fields  = a.get("fields", {})
-            content = fields.get("bodyText") or fields.get("trailText") or ""
+            trail = fields.get("trailText", "") or ""
+            body = fields.get("bodyText", "") or ""
+
+            content = " ".join([
+                a.get("webTitle", ""),
+                trail,
+                body
+            ]).strip()
             if len(content) < 150:
                 continue
             articles.append({
@@ -163,7 +178,15 @@ def _fetch_gnews(topic: str, page_size: int = 10) -> list[dict]:
         resp.raise_for_status()
         articles = []
         for a in resp.json().get("articles", []):
-            content = a.get("content") or a.get("description") or ""
+            title = a.get("title", "") or ""
+            description = a.get("description", "") or ""
+            content_raw = a.get("content", "") or ""
+
+            content = " ".join([
+                title,
+                description,
+                content_raw
+            ]).strip()
             if len(content) < 150:
                 continue
             articles.append({

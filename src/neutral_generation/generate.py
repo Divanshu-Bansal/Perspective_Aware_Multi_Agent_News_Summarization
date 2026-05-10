@@ -5,195 +5,140 @@ import re
 def _topic_guard(summaries: list[dict], topic: str, min_score: float = 0.1) -> list[dict]:
     """
     Filters out summaries that are weakly related to the given topic.
-
-    Strategy:
-    - Extract topic keywords
-    - Keep summaries where a minimum fraction of keywords appear
-
-    Args:
-        summaries (list[dict]): List of summary objects
-        topic (str): User query/topic
-        min_score (float): Minimum fraction of keyword matches required
-
-    Returns:
-        list[dict]: Filtered summaries
     """
     topic_words = [w for w in topic.lower().split() if len(w) > 2]
-
-    # If no meaningful topic words, return all summaries
     if not topic_words:
         return summaries
-    
     kept = []
-
     for item in summaries:
         text = (item.get("summary") or "").lower()
-
-        # Count keyword matches
         matches = sum(1 for w in topic_words if w in text)
-
-        # Keep summary if it meets threshold
         if (matches / len(topic_words)) >= min_score:
             kept.append(item)
-
-    # Fallback: return original if filtering removes everything
     return kept if kept else summaries
-
 
 def _clean_sentence(sentence: str) -> str:
     """
-    Cleans a sentence for display.
-
-    Removes:
-    - Truncation artifacts (e.g., "[+123 chars]")
-    - Incomplete trailing fragments
-
-    Returns:
-        str: Cleaned sentence
+    Cleans a sentence for display — removes truncation artifacts.
+    Appends ellipsis instead of cutting mid-sentence fragments.
     """
     sentence = sentence.strip()
 
-    # Remove truncation artifacts
-    sentence = re.sub(r'\[\+\d+\s*chars?\]', '', sentence)
+    # Remove truncation markers like [+123 chars]
+    sentence = re.sub(r'\[\+\d+\s*chars?\]', '', sentence).strip()
 
-    # If sentence ends abruptly, trim to last complete punctuation
+    # If sentence ends without punctuation, add ellipsis
+    # (do NOT cut — cutting creates worse fragments)
     if sentence and sentence[-1] not in '.!?':
-        last_punct = max(
-            sentence.rfind('.'),
-            sentence.rfind('!'),
-            sentence.rfind('?'),
-        )
+        sentence = sentence + "..."
 
-        # Only trim if meaningful portion exists
-        if last_punct > len(sentence) // 2:
-            sentence = sentence[:last_punct + 1]
-            
     return sentence.strip()
 
 
-def _extract_best_sentences(summaries: list[dict], topic: str, max_sentences: int = 4) -> str:
-    """
-    Extracts high-quality sentences from summaries to form a neutral summary.
+# ─────────────────────────────────────────────────────────────
+# Biased summary generator
+# ─────────────────────────────────────────────────────────────
 
-    Strategy:
-    1. Sort articles by relevance score
-    2. Extract clean sentences
-    3. Filter noise (length, truncation, metadata)
-    4. Rank by topic relevance + article relevance
-    5. Select top N sentences
+def generate_biased_summary(
+    source_summaries: list[dict],
+    comparison_result: dict | None = None,
+) -> dict:
+    """
+    Generates a biased summary from the single highest-relevance article.
+
+    This intentionally represents what a reader gets when they rely on
+    only one outlet — no aggregation, no perspective balancing.
 
     Args:
-        summaries (list[dict]): Input summaries
-        topic (str): Topic for relevance scoring
-        max_sentences (int): Max number of sentences in final output
+        source_summaries (list[dict]): Processed articles with relevance scores
+        comparison_result (dict, optional): Output from compare_summaries()
 
     Returns:
-        str: Combined neutral summary
+        dict: {
+            "summary":               str   — the biased summary text,
+            "source":                str   — outlet name,
+            "api":                   str   — API provider,
+            "title":                 str   — article title,
+            "url":                   str   — article URL,
+            "perspective":           str   — perspective category of this source,
+            "relevance":             float — relevance score,
+            "missing_perspectives":  list[str] — perspectives ignored by this source,
+        }
     """
-    topic_words = set(w.lower() for w in topic.split() if len(w) > 2)
+    if not source_summaries:
+        return {
+            "summary":              "No articles available.",
+            "source":               "",
+            "api":                  "",
+            "title":                "",
+            "url":                  "",
+            "perspective":          "",
+            "relevance":            0.0,
+            "missing_perspectives": [],
+        }
 
-    # Prioritize summaries by relevance score
-    sorted_summaries = sorted(
-        summaries,
+    # Sort by relevance score descending
+    ranked = sorted(
+        source_summaries,
         key=lambda x: x.get("relevance_score", 0),
         reverse=True
     )
 
-    collected_sentences = []
-    seen_content = set()  # Used for deduplication
+    # Pick the best article that has a meaningful summary (at least 20 words)
+    top_article = None
+    for candidate in ranked:
+        summary = candidate.get("summary", "")
+        if len(summary.split()) >= 20:
+            top_article = candidate
+            break
 
-    # Process top N summaries only (performance optimization)
-    for item in sorted_summaries[:5]:
-        summary = (item.get("summary") or "").strip()
-        if not summary:
-            continue
+    # Final fallback — use the top ranked article regardless of summary length
+    if not top_article:
+        top_article = ranked[0]
 
-        # Split summary into sentences
-        raw_sentences = re.split(r'(?<=[.!?])\s+', summary)
+    # Clean up the summary text
+    summary_text = top_article.get("summary", "")
 
-        for sentence in raw_sentences:
-            sentence = _clean_sentence(sentence)
+    # Remove NewsAPI truncation markers like [+2145 chars]
+    summary_text = re.sub(r'\[\+\d+\s*chars?\]', '', summary_text).strip()
 
-            # Skip sentences that are too short or too long
-            if len(sentence.split()) < 6 or len(sentence.split()) > 60:
-                continue
+    # Remove trailing ellipsis artifacts
+    summary_text = re.sub(r'\s*\.\.\.\s*$', '.', summary_text).strip()
 
-            # Skip malformed/truncated sentences
-            if re.search(r'\[\+\d+', sentence):
-                continue
+    # Remove any double spaces created by cleanup
+    summary_text = re.sub(r'\s+', ' ', summary_text).strip()
 
-            # Skip UI/artifact lines (e.g., arrows, formatting symbols)
-            if sentence.count('→') > 0 or sentence.count('└─') > 0:
-                continue
+    # Ensure summary ends with proper punctuation
+    if summary_text and summary_text[-1] not in '.!?':
+        summary_text = summary_text + '.'
 
-            # Deduplicate using simple fingerprint (first few words)
-            fingerprint = " ".join(sentence.lower().split()[:6])
-            if fingerprint in seen_content:
-                continue
-            seen_content.add(fingerprint)
+    # Determine which perspectives this single source misses
+    all_perspectives = set()
+    if comparison_result:
+        for p in comparison_result.get("perspectives", []):
+            ptype = p.get("perspective", "General")
+            if ptype:
+                all_perspectives.add(ptype)
 
-            # Compute topic relevance score
-            sentence_words = set(sentence.lower().split())
-            topic_overlap = len(sentence_words.intersection(topic_words))
+    top_perspective = top_article.get("perspective", "General")
 
-            collected_sentences.append({
-                "text":          sentence,
-                "topic_overlap": topic_overlap,
-                "relevance":     item.get("relevance_score", 0),
-            })
+    # Missing = all perspectives in the full set minus the one this source covers
+    missing = sorted(all_perspectives - {top_perspective})
 
-    if not collected_sentences:
-        return ""
+    return {
+        "summary":              summary_text,
+        "source":               top_article.get("source", "Unknown"),
+        "api":                  top_article.get("api", "Unknown"),
+        "title":                top_article.get("title", ""),
+        "url":                  top_article.get("url", ""),
+        "perspective":          top_perspective,
+        "relevance":            top_article.get("relevance_score", 0.0),
+        "missing_perspectives": missing,
+    }
 
-    # Rank sentences by:
-    # 1. Topic relevance
-    # 2. Article relevance
-    collected_sentences.sort(
-        key=lambda x: (x["topic_overlap"], x["relevance"]),
-        reverse=True
-    )
-
-    # Select top sentences
-    best = collected_sentences[:max_sentences]
-
-    # Re-sort for readability (natural flow)
-    best.sort(key=lambda x: x["relevance"], reverse=True)
-
-    return " ".join(s["text"] for s in best)
-
-
-def _bias_warning(perspectives: list[dict]) -> str | None:
-    """
-    Detects if news coverage is heavily biased toward a single perspective.
-
-    Criteria:
-    - One perspective accounts for >= 80% of sources
-    - At least 3 sources exist
-
-    Returns:
-        str | None: Warning message if bias detected, else None
-    """
-    if not perspectives:
-        return None
-    
-    counts = {}
-
-    # Count occurrences of each perspective
-    for p in perspectives:
-        ptype = p.get("perspective", "General")
-        counts[ptype] = counts.get(ptype, 0) + 1
-
-    total = len(perspectives)
-
-    # Check dominance threshold
-    for ptype, count in counts.items():
-        if count / total >= 0.80 and total >= 3:
-            return (
-                f"Coverage bias detected: {count}/{total} sources share a "
-                f"{ptype} perspective. Consider searching for more diverse sources."
-            )
-    return None
-
+# ─────────────────────────────────────────────────────────────
+# UNCHANGED: Neutral summary generator
+# ─────────────────────────────────────────────────────────────
 
 def generate_neutral_summary(
     source_summaries: list[dict],
@@ -201,126 +146,267 @@ def generate_neutral_summary(
     topic: str = ""
 ) -> str:
     """
-    Main function to generate a structured, neutral summary from multiple sources.
-
-    Pipeline:
-    1. Validate input summaries
-    2. Apply topic filtering
-    3. Extract key sentences
-    4. Integrate themes and perspectives
-    5. Format final structured output
-
-    Args:
-        source_summaries (list[dict]): Input summaries from different sources
-        comparison_result (dict, optional): Output from comparison module
-        topic (str): User query/topic
-
-    Returns:
-        str: Formatted neutral summary report
+    Generates a clean multi-source synthesis paragraph for UI display.
     """
-
-    # Validate input
     if not source_summaries:
-        return "No summaries available to generate a neutral summary."
+        return "No summaries available."
 
     valid_summaries = [item for item in source_summaries if item.get("summary")]
+
     if not valid_summaries:
         return "No valid source summaries available."
 
-    # Apply topic relevance filtering
     if topic:
         valid_summaries = _topic_guard(valid_summaries, topic)
 
-    # Default values
-    common_themes    = []
-    perspectives     = []
-    similarity_method    = "tf-idf + cosine similarity"
-    perspective_diversity = 1
+    synthesis = generate_multi_source_synthesis(
+        valid_summaries,
+        comparison_result=comparison_result,
+        topic=topic,
+        max_sentences=5,
+    )
 
-    # Extract comparison metadata if available
-    if comparison_result:
-        common_themes         = comparison_result.get("common_themes", [])
-        perspectives          = comparison_result.get("perspectives", [])
-        similarity_method     = comparison_result.get("similarity_method", "tf-idf + cosine similarity")
-        perspective_diversity = comparison_result.get("perspective_diversity", 1)
+    return synthesis.strip()
 
-    # Generate neutral summary text
-    neutral_summary = _extract_best_sentences(valid_summaries, topic, max_sentences=4)
+def _is_bad_summary_sentence(sentence: str) -> bool:
+    s = sentence.strip()
+    lower = s.lower()
 
-    # Fallback if extraction fails
-    if not neutral_summary:
-        neutral_summary = valid_summaries[0].get("summary", "")[:400]
+    # Reject title-style lines
+    if len(s.split()) < 15 and ("?" in s or (":" not in s and s.istitle())):
+        return True
 
-    # ─────────────────────────────────────────────────────────────
-    # Build structured output (UI-friendly text format)
-    # ─────────────────────────────────────────────────────────────
+    bad_patterns = [
+        r"\bvmpl\b",
+        r"\bani\b",
+        r"\bpti\b",
+        r"\breuters\b",
+        r"\bnew delhi\b",
+        r"\blisten to this article\b",
+        r"\bphoto:",
+        r"\bchars\b",
+        r"\badvertisement\b",
+        r"\bsubscribe\b",
+    ]
 
-    divider = "─" * 50
-    output  = []
+    if any(re.search(pattern, lower) for pattern in bad_patterns):
+        return True
+    
+    # Reject sentence fragments that do not begin properly
+    if re.match(r"^(is|was|were|are|has|have|had|would|could|should)\b", lower):
+        return True
+    
+    # Reject lowercase sentence starts
+    if s and s[0].islower():
+        return True
 
-    # Header
-    output.append("=" * 50)
-    output.append("  NEUTRAL SUMMARY")
-    if topic:
-        output.append(f"  Topic: {topic}")
-    output.append("=" * 50)
-    output.append("")
+    if len(s.split()) < 8:
+        return True
 
-    # Summary content
-    output.append(neutral_summary.strip())
-    output.append("")
+    if s.endswith("..."):
+        return True
 
-    # Key themes section
-    if common_themes:
-        output.append(divider)
-        output.append("  KEY THEMES")
-        output.append(divider)
-        for theme in common_themes[:6]:
-            output.append(f"  • {theme}")
-        output.append("")
+    return False
 
-    # Perspectives section
-    if perspectives:
-        output.append(divider)
-        output.append("  PERSPECTIVES DETECTED")
-        output.append(divider)
-        for item in perspectives[:8]:
-            source      = item.get("source", "Unknown")
-            perspective = item.get("perspective", "General")
-            title       = item.get("title", "")
-            output.append(f"  [{perspective}] {source}")
-            if title:
-                output.append(f"    └─ {title}")
-        output.append(
-            f"\n  Perspective diversity score: {perspective_diversity} unique viewpoint(s)"
+def _safe_finish(text: str) -> str:
+    text = re.sub(r"\s+", " ", text or "").strip()
+    text = re.sub(r"\[\+\d+\s*chars?\]", "", text).strip()
+    text = re.sub(r"\s*\.\.\.\s*$", ".", text).strip()
+
+    matches = list(re.finditer(r"[.!?]", text))
+    if matches:
+        text = text[:matches[-1].end()].strip()
+
+    if text and text[-1] not in ".!?":
+        text += "."
+
+    return text
+
+def build_synthesis_paragraph(
+    selected_sentences: list[dict],
+    topic: str = "",
+    perspectives: list[str] | None = None,
+) -> str:
+
+    if not selected_sentences:
+        return ""
+
+    perspectives = perspectives or []
+
+    opening = (
+        f"Coverage across multiple independent sources highlights broader discussion around {topic}."
+    )
+
+    # Use top 2–3 strongest sentences only
+    body_sentences = [
+        item["text"]
+        for item in selected_sentences[:3]
+    ]
+
+    compressed_sentences = []
+    seen_fragments = set()
+
+    for sentence in body_sentences:
+        cleaned = sentence.strip()
+
+        if topic:
+            cleaned = re.sub(
+                rf"^{re.escape(topic)}[:,-]?\s*",
+                "",
+                cleaned,
+                flags=re.IGNORECASE
+            ).strip()
+
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+
+        # Skip duplicate / near-identical fragments
+        normalized = cleaned.lower()
+
+        if normalized in seen_fragments:
+            continue
+
+        seen_fragments.add(normalized)
+
+        compressed_sentences.append(
+            cleaned if cleaned.endswith(".") else cleaned + "."
         )
-        output.append(f"  Similarity method used: {similarity_method}")
-        output.append("")
 
-    # Source contribution section
-    output.append(divider)
-    output.append("  SOURCE CONTRIBUTIONS")
-    output.append(divider)
-    for item in valid_summaries[:5]:
+    body = " ".join(compressed_sentences)
+
+    if perspectives:
+        closing = (
+            "Together, these sources provide broader context and issue coverage "
+            "than a single outlet alone."
+        )
+    else:
+        closing = (
+            "Together, the coverage provides broader perspective coverage than "
+            "a single outlet alone."
+        )
+
+    return _safe_finish(f"{opening} {body} {closing}")
+
+
+def generate_multi_source_synthesis(
+    source_summaries: list[dict],
+    comparison_result: dict | None = None,
+    topic: str = "",
+    max_sentences: int = 5,
+) -> str:
+    """
+    Creates a readable synthesis from multiple independent sources.
+    This is still extractive, but it balances source and perspective coverage.
+    """
+    if not source_summaries:
+        return "No summaries available."
+
+    valid = [item for item in source_summaries if item.get("summary")]
+    if topic:
+        valid = _topic_guard(valid, topic)
+
+    if not valid:
+        return "No valid source summaries available."
+
+    topic_words = set(w.lower() for w in topic.split() if len(w) > 2)
+
+    # Attach perspective information
+    perspective_lookup = {}
+    if comparison_result:
+        for p in comparison_result.get("perspectives", []):
+            perspective_lookup[p.get("source")] = p.get("perspective", "General")
+
+    selected = []
+    seen_sources = set()
+    seen_fingerprints = set()
+
+    ranked = sorted(
+        valid,
+        key=lambda x: x.get("relevance_score", 0),
+        reverse=True,
+    )
+
+    # First pass: try to include different perspectives
+    for item in ranked:
         source = item.get("source", "Unknown")
-        score  = item.get("relevance_score", 0)
-        url    = item.get("url", "")
+        perspective = item.get("perspective") or perspective_lookup.get(source, "General")
 
-        # Visual relevance bar (UX enhancement)
-        bar    = "█" * int(score * 10) + "░" * (10 - int(score * 10))
+        if source in seen_sources:
+            continue
 
-        output.append(f"  {source}")
-        output.append(f"    Relevance: {bar} {score:.2f}")
-        if url:
-            output.append(f"    URL: {url}")
-    output.append("")
+        sentences = re.split(r"(?<=[.!?])\s+", item.get("summary", ""))
+        candidate_sentences = []
 
-    # Bias detection warning
-    bias_msg = _bias_warning(perspectives)
-    if bias_msg:
-        output.append(divider)
-        output.append(f"  ⚠  {bias_msg}")
-        output.append("")
+        for sentence in sentences:
+            sentence = _clean_sentence(sentence)
+            words = sentence.split()
 
-    output.append("=" * 50)
-    return "\n".join(output)
+            if len(words) < 12 or len(words) > 45:
+                continue
+
+            if _is_bad_summary_sentence(sentence):
+                continue
+
+            fingerprint = " ".join(sentence.lower().split()[:8])
+
+            if fingerprint in seen_fingerprints:
+                continue
+
+            sentence_words = set(re.findall(r"\b\w+\b", sentence.lower()))
+
+            topic_overlap = len(topic_words.intersection(sentence_words))
+
+            # Skip weakly related sentences
+            required_overlap = max(1, min(2, len(topic_words) // 2))
+            if topic_words and topic_overlap < required_overlap:
+                continue
+
+            lower_sentence = sentence.lower()
+            lower_topic = topic.lower()
+
+            exact_topic_match = lower_topic in lower_sentence
+
+            score = (
+                topic_overlap * 2.0
+                + (3.0 if exact_topic_match else 0.0)
+                + item.get("relevance_score", 0)
+                + len(words) * 0.05
+            )
+
+            candidate_sentences.append({
+                "text": sentence,
+                "score": score,
+                "fingerprint": fingerprint,
+                "topic_overlap": topic_overlap,
+            })
+
+        if not candidate_sentences:
+            continue
+
+        candidate_sentences.sort(key=lambda x: x["score"], reverse=True)
+
+        best_sentence = candidate_sentences[0]
+
+        # Prefer the first strong sentence from each source
+        selected.append({
+            "text": best_sentence["text"],
+            "source": source,
+            "perspective": perspective,
+            "score": best_sentence["score"],
+        })
+
+        seen_sources.add(source)
+        seen_fingerprints.add(best_sentence["fingerprint"])
+
+        if len(selected) >= max_sentences:
+            break
+
+    # Sort selected sentences by relevance for readability
+    selected.sort(key=lambda x: x["score"], reverse=True)
+
+    perspectives_used = [item["perspective"] for item in selected if item.get("perspective")]
+
+    return build_synthesis_paragraph(
+        selected_sentences=selected[:max_sentences],
+        topic=topic,
+        perspectives=perspectives_used,
+    )
