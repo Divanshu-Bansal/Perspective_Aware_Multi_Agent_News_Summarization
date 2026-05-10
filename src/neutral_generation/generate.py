@@ -316,7 +316,7 @@ def build_synthesis_paragraph(
 
         if topic:
             cleaned = re.sub(
-                rf"\b{re.escape(topic)}\b",
+                rf"^{re.escape(topic)}[:,-]?\s*",
                 "",
                 cleaned,
                 flags=re.IGNORECASE
