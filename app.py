@@ -546,11 +546,14 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
         )
 
         with st.container(border=True):
-            st.caption(
-                f"Source: {biased_result['source']} ({biased_result['api']})\n"
-                f"Perspective: {biased_result['perspective']}\n"
-                f"Relevance: {biased_result['relevance']:.2f}\n"
-                f"Coverage: 1 of {len(source_summaries)} articles"
+            st.markdown(
+                f'<div style="font-size:0.8rem;color:#888;line-height:1.8;">'
+                f'<b>Source:</b> {biased_result["source"]} ({biased_result["api"]})<br>'
+                f'<b>Perspective:</b> {biased_result["perspective"]}<br>'
+                f'<b>Relevance:</b> {biased_result["relevance"]:.2f}<br>'
+                f'<b>Coverage:</b> 1 of {len(source_summaries)} articles'
+                f'</div>',
+                unsafe_allow_html=True,
             )
 
             st.markdown(
