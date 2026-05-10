@@ -352,6 +352,14 @@ def _is_bad_summary_sentence(sentence: str) -> bool:
 
     if any(re.search(pattern, lower) for pattern in bad_patterns):
         return True
+    
+    # Reject sentence fragments that do not begin properly
+    if re.match(r"^(is|was|were|are|has|have|had|would|could|should)\b", lower):
+        return True
+    
+    # Reject lowercase sentence starts
+    if s and s[0].islower():
+        return True
 
     if len(s.split()) < 8:
         return True
@@ -387,8 +395,8 @@ def build_synthesis_paragraph(
     perspectives = perspectives or []
 
     opening = (
-        f"Multiple independent sources frame {topic} as a broader political, social, "
-        f"and economic issue."
+        f"Multiple independent sources provide broader coverage of {topic}, "
+        f"highlighting economic, technological, and social developments."
         if topic else
         "Multiple independent sources frame this as a broader political, social, "
         "and economic issue."
@@ -400,7 +408,10 @@ def build_synthesis_paragraph(
         for item in selected_sentences[:3]
     ]
 
-    body = " ".join(body_sentences)
+    body = " ".join(
+        sentence if sentence.endswith(".") else sentence + "."
+        for sentence in body_sentences
+    )
 
     if perspectives:
         perspective_text = ", ".join(sorted(set(perspectives)))

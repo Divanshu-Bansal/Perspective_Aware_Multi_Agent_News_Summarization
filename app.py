@@ -506,7 +506,8 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
 
     biased_result = generate_biased_summary(source_summaries, comparison_result)
     neutral_summary = generate_neutral_summary(source_summaries, comparison_result, topic=topic)
-    summary_text = extract_summary_text(neutral_summary)
+    # summary_text = extract_summary_text(neutral_summary)   #TODO
+    summary_text = neutral_summary.strip()
 
     log_final_summary(task, neutral_summary, topic)
 
