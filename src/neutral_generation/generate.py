@@ -425,8 +425,14 @@ def generate_multi_source_synthesis(
             if topic_words and topic_overlap < required_overlap:
                 continue
 
+            lower_sentence = sentence.lower()
+            lower_topic = topic.lower()
+
+            exact_topic_match = lower_topic in lower_sentence
+
             score = (
                 topic_overlap * 2.0
+                + (3.0 if exact_topic_match else 0.0)
                 + item.get("relevance_score", 0)
                 + len(words) * 0.05
             )
