@@ -236,7 +236,7 @@ def generate_neutral_summary(
         valid_summaries,
         comparison_result=comparison_result,
         topic=topic,
-        max_sentences=6,
+        max_sentences=5,
     )
 
     if not neutral_summary:
@@ -300,6 +300,34 @@ def generate_neutral_summary(
     output.append("=" * 50)
     return "\n".join(output)
 
+def _is_bad_summary_sentence(sentence: str) -> bool:
+    s = sentence.strip()
+    lower = s.lower()
+
+    bad_patterns = [
+        r"\bvmpl\b",
+        r"\bani\b",
+        r"\bpti\b",
+        r"\breuters\b",
+        r"\bnew delhi\b",
+        r"\blisten to this article\b",
+        r"\bphoto:",
+        r"\bchars\b",
+        r"\badvertisement\b",
+        r"\bsubscribe\b",
+    ]
+
+    if any(re.search(pattern, lower) for pattern in bad_patterns):
+        return True
+
+    if len(s.split()) < 8:
+        return True
+
+    if s.endswith("..."):
+        return True
+
+    return False
+
 def _safe_finish(text: str) -> str:
     text = re.sub(r"\s+", " ", text or "").strip()
     text = re.sub(r"\[\+\d+\s*chars?\]", "", text).strip()
@@ -314,12 +342,50 @@ def _safe_finish(text: str) -> str:
 
     return text
 
+def build_synthesis_paragraph(
+    selected_sentences: list[dict],
+    topic: str = "",
+    perspectives: list[str] | None = None,
+) -> str:
+    """
+    Turns selected source sentences into a smoother synthesis-style paragraph.
+    This is template-based, so it avoids needing another LLM call.
+    """
+    if not selected_sentences:
+        return ""
+
+    sentence_texts = [item["text"] for item in selected_sentences]
+    perspectives = perspectives or []
+
+    opening = (
+        f"Multiple sources frame {topic} as a developing issue with political, social, "
+        f"and economic implications."
+        if topic else
+        "Multiple sources frame this as a developing issue with political, social, "
+        "and economic implications."
+    )
+
+    body = " ".join(sentence_texts[:3])
+
+    if perspectives:
+        perspective_text = ", ".join(sorted(set(perspectives)))
+        closing = (
+            f"Overall, the coverage combines {perspective_text} viewpoints, giving a broader "
+            "picture than a single outlet alone."
+        )
+    else:
+        closing = (
+            "Overall, the combined coverage gives a broader picture than a single outlet alone."
+        )
+
+    return _safe_finish(f"{opening} {body} {closing}")
+
 
 def generate_multi_source_synthesis(
     source_summaries: list[dict],
     comparison_result: dict | None = None,
     topic: str = "",
-    max_sentences: int = 6,
+    max_sentences: int = 5,
 ) -> str:
     """
     Creates a readable synthesis from multiple independent sources.
@@ -367,10 +433,10 @@ def generate_multi_source_synthesis(
             sentence = _clean_sentence(sentence)
             words = sentence.split()
 
-            if len(words) < 8 or len(words) > 45:
+            if len(words) > 45:
                 continue
 
-            if sentence.endswith("..."):
+            if _is_bad_summary_sentence(sentence):
                 continue
 
             fingerprint = " ".join(sentence.lower().split()[:8])
@@ -400,5 +466,10 @@ def generate_multi_source_synthesis(
     # Sort selected sentences by relevance for readability
     selected.sort(key=lambda x: x["score"], reverse=True)
 
-    synthesis = " ".join(item["text"] for item in selected[:max_sentences])
-    return _safe_finish(synthesis)
+    perspectives_used = [item["perspective"] for item in selected if item.get("perspective")]
+
+    return build_synthesis_paragraph(
+        selected_sentences=selected[:max_sentences],
+        topic=topic,
+        perspectives=perspectives_used,
+    )

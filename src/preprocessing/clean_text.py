@@ -11,6 +11,14 @@ BOILERPLATE_PATTERNS = [
     r"All rights reserved",
     r"\b\d+\s*chars\b",
     r"\[\+\d+\s*chars?\]",
+
+    r"\b[A-Z]{2,}\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,\s+[A-Z][a-z]+\s+\d{1,2}:",
+    r"\bNew Delhi India,\s+[A-Z][a-z]+\s+\d{1,2}:",
+    r"\bANI\b",
+    r"\bPTI\b",
+    r"\bReuters\b",
+    r"\bAP\b",
+    r"\bVMPL\b",
 ]
 
 def clean_text(text: str) -> str:

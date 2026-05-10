@@ -520,10 +520,9 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
 
     st.info(
         "💡 This section compares what a reader gets from a single outlet versus "
-        "an aggregated summary built from multiple independent sources. "
-        "More sources means broader perspective coverage — but note that "
-        "multi-source summaries reduce single-outlet dominance rather than "
-        "guaranteeing complete neutrality."
+        "a synthesis built from multiple independent sources. More sources can broaden "
+        "perspective coverage, but multi-source synthesis reduces single-outlet dominance "
+        "rather than guaranteeing complete neutrality."
     )
 
     stat1, stat2, stat3 = st.columns(3)
