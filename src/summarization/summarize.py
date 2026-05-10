@@ -79,19 +79,26 @@ def chunk_text(text: str, max_words: int = 400):
 
 def finish_at_sentence_boundary(text: str) -> str:
     """
-    Removes incomplete final fragments and ensures the summary ends cleanly.
+    Cleans incomplete summary endings and ensures full sentence output.
     """
+
     if not text:
         return ""
 
+    text = re.sub(r"\[\+\d+\s*chars?\]", "", text)
     text = re.sub(r"\s+", " ", text).strip()
-    text = re.sub(r"\[\+\d+\s*chars?\]", "", text).strip()
-    text = re.sub(r"\s*\.\.\.\s*$", ".", text).strip()
 
-    matches = list(re.finditer(r"[.!?]", text))
-    if matches:
-        last_end = matches[-1].end()
-        text = text[:last_end].strip()
+    # Remove broken trailing fragments
+    text = re.sub(r"\b[A-Za-z]{1,8}$", "", text).strip()
+
+    # Remove trailing ellipsis
+    text = re.sub(r"\.\.\.+$", ".", text).strip()
+
+    # Find last proper sentence ending
+    sentence_matches = list(re.finditer(r"[.!?]", text))
+
+    if sentence_matches:
+        text = text[:sentence_matches[-1].end()].strip()
 
     if text and text[-1] not in ".!?":
         text += "."
@@ -169,7 +176,13 @@ def summarize_article(text: str) -> str:
                 truncation=True,   # Ensure input fits model limits
             )
 
-            summaries.append(result[0]["summary_text"])
+            summary_text = result[0]["summary_text"]
+
+            # Remove accidental title duplication
+            if len(summary_text.split()) < 18 and "?" in summary_text:
+                continue
+
+            summaries.append(summary_text)
 
         except Exception as e:
             # Fallback mechanism to prevent pipeline failure

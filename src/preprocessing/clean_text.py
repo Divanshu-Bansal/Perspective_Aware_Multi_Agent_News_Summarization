@@ -11,7 +11,9 @@ BOILERPLATE_PATTERNS = [
     r"All rights reserved",
     r"\b\d+\s*chars\b",
     r"\[\+\d+\s*chars?\]",
-
+    r"Watch FIFA World Cup[^.]+",
+    r"FREE and EXCLUSIVE[^.]+",
+    r"LIVE[^.]+",
     r"\b[A-Z]{2,}\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,\s+[A-Z][a-z]+\s+\d{1,2}:",
     r"\bNew Delhi India,\s+[A-Z][a-z]+\s+\d{1,2}:",
     r"\bANI\b",
