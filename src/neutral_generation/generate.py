@@ -307,6 +307,7 @@ def build_synthesis_paragraph(
     ]
 
     compressed_sentences = []
+    seen_fragments = set()
 
     for sentence in body_sentences:
         cleaned = sentence.strip()
@@ -320,6 +321,14 @@ def build_synthesis_paragraph(
             ).strip()
 
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
+
+        # Skip duplicate / near-identical fragments
+        normalized = cleaned.lower()
+
+        if normalized in seen_fragments:
+            continue
+
+        seen_fragments.add(normalized)
 
         compressed_sentences.append(
             cleaned if cleaned.endswith(".") else cleaned + "."
