@@ -12,8 +12,9 @@ When you enter a news topic, the system:
 2. **Cleans and filters** content through a multi-layer relevance pipeline
 3. **Summarizes each article** individually using a transformer-based NLP model
 4. **Compares perspectives** across sources using TF-IDF and cosine similarity
-5. **Generates a neutral summary** that reflects multiple viewpoints rather than a single biased source
-6. **Tracks every run** as a ClearML experiment with full metrics logging
+5. **Compares single-source vs multi-source coverage** — shows what a reader misses by relying on one outlet versus aggregating multiple sources
+6. **Generates a multi-source synthesis** that draws from the highest-quality sentences across all sources, weighted by relevance and topic alignment
+7. **Tracks every run** as a ClearML experiment with full metrics logging
 
 All of this runs through a Streamlit UI with progressive streaming — you watch each step happen in real time.
 
@@ -66,7 +67,9 @@ The app is deployed via GitHub Actions with a Cloudflare tunnel. To launch it:
 
 **Cosine similarity analysis** — detects when multiple sources are covering the same angle, flagging redundant perspectives and identifying the most unique coverage.
 
-**Bias detection** — warns when ≥ 80% of sources share the same perspective type, prompting the user to seek more diverse coverage.
+**Single-source vs multi-source comparison** — explicitly shows what a reader gets from the highest-relevance single outlet versus an aggregated multi-source synthesis. Missing perspectives are identified and displayed as coverage gaps, making the value of aggregation immediately visible.
+
+**Coverage gap analysis** — identifies which perspective categories (Economic, Political, Technological, Social, Security) are absent from single-source coverage and restores them in the multi-source synthesis.
 
 **ClearML experiment tracking** — every pipeline run is logged as a ClearML task with fetch metrics, per-article relevance scores, perspective distribution, common themes, and the final summary.
 
@@ -245,6 +248,8 @@ python main.py --topic "generative AI jobs"
 - Use 2–4 keyword phrases rather than full sentences
 - Avoid very niche or hyper-local topics — free API tiers have limited coverage
 - Topics with recent news coverage return stronger results
+- The single-source vs multi-source comparison is most striking on 
+  topics with diverse international coverage (e.g. trade, AI, climate)
 
 ---
 
@@ -252,7 +257,9 @@ python main.py --topic "generative AI jobs"
 
 **Relevance filtering** currently uses weighted keyword matching. A production version would replace this with zero-shot semantic classification (e.g. `facebook/bart-large-mnli`) for topic-agnostic relevance scoring.
 
-**Perspective classification** uses keyword heuristics. A fine-tuned classifier trained on AllSides or Media Bias/Fact Check data would be significantly more accurate.
+**Perspective classification** uses keyword heuristics rather than a fine-tuned classifier. As a result, the system measures perspective diversity across sources rather than claiming to produce objectively neutral summaries. A fine-tuned classifier trained on AllSides or Media Bias/Fact Check data would enable more accurate perspective labelling.
+
+**Multi-source synthesis does not guarantee neutrality** — aggregating multiple sources broadens perspective coverage but cannot eliminate all forms of bias, particularly when available sources share similar editorial orientations on a topic.
 
 **NewsAPI free tier** limits results to the last 30 days and returns at most 100 articles per query. A paid tier or additional sources (GDELT, MediaStack) would improve coverage for niche topics.
 
