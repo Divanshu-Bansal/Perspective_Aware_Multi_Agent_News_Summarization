@@ -1,6 +1,6 @@
 # 🗞️ Perspective-Aware Multi-Agent News Summarization System
 
-> Automatically collects, processes, and summarizes news from multiple sources — producing a balanced, bias-aware view of any topic with transparent source attribution and perspective analysis.
+> Automatically collects, processes, and summarizes news from multiple sources — explicitly comparing single-source versus multi-source coverage to demonstrate the value of perspective aggregation, with full experiment tracking via ClearML.
 
 ---
 
@@ -23,16 +23,19 @@ All of this runs through a Streamlit UI with progressive streaming — you watch
 ## Screenshots
 
 **1. User Inputs a topic to search**
-![User input to search for a topic](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/screenshots/Step%201.png)
+![User input to search for a topic](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/master/docs/Screenshots/Step%201.png)
 
 **2. Summarizing articles with relevance scores**
-![Article cards with relevance scores](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/screenshots/Step%202.png)
+![Article cards with relevance scores](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/master/docs/Screenshots/Step%202.png)
 
-**3. Perspective breakdown and neutral summary generation**
-![Perspective breakdown, themes and neutral summary output](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/screenshots/Step%203%20%26%204.png)
+**3. Perspective breakdown**
+![Perspective breakdown](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/master/docs/Screenshots/Step%203.png)
 
-**4. Task logs in ClearML**
-![Task logs in ClearML](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/implementing_streamlit_UI/docs/screenshots/ClearML.png)
+**4. Single-Source Summary Vs Multi-Source Synthesis**
+![Single-Source Summary Vs Multi-Source Synthesis](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/master/docs/Screenshots/Step%204.png)
+
+**5. Task logs in ClearML**
+![Task logs in ClearML](https://github.com/Divanshu-Bansal/Perspective_Aware_Multi_Agent_News_Summarization/blob/master/docs/Screenshots/ClearML.png)
 
 ---
 
@@ -109,7 +112,7 @@ The app is deployed via GitHub Actions with a Cloudflare tunnel. To launch it:
 │   ├── comparison/
 │   │   └── compare.py             # TF-IDF, cosine similarity, perspective classification
 │   ├── neutral_generation/
-│   │   └── generate.py            # Neutral summary generation + bias detection
+│   │   └── generate.py            # Single-source vs multi-source synthesis generation
 │   ├── tracking/
 │   │   └── clearml_tracker.py     # ClearML experiment logging
 │   └── config.py                  # Environment configuration
