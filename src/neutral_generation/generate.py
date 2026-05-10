@@ -231,104 +231,6 @@ def generate_neutral_summary(
 
     return synthesis.strip()
 
-## TODO
-# def generate_neutral_summary(
-#     source_summaries: list[dict],
-#     comparison_result: dict | None = None,
-#     topic: str = ""
-# ) -> str:
-#     """
-#     Generates a structured, neutral summary aggregated from multiple sources.
-#     """
-#     if not source_summaries:
-#         return "No summaries available to generate a neutral summary."
-
-#     valid_summaries = [item for item in source_summaries if item.get("summary")]
-#     if not valid_summaries:
-#         return "No valid source summaries available."
-
-#     if topic:
-#         valid_summaries = _topic_guard(valid_summaries, topic)
-
-#     common_themes         = []
-#     perspectives          = []
-#     similarity_method     = "tf-idf + cosine similarity"
-#     perspective_diversity = 1
-
-#     if comparison_result:
-#         common_themes         = comparison_result.get("common_themes", [])
-#         perspectives          = comparison_result.get("perspectives", [])
-#         similarity_method     = comparison_result.get("similarity_method", "tf-idf + cosine similarity")
-#         perspective_diversity = comparison_result.get("perspective_diversity", 1)
-
-#     neutral_summary = generate_multi_source_synthesis(
-#         valid_summaries,
-#         comparison_result=comparison_result,
-#         topic=topic,
-#         max_sentences=5,
-#     )
-
-#     if not neutral_summary:
-#         neutral_summary = _safe_finish(valid_summaries[0].get("summary", "")[:600])
-
-#     divider = "─" * 50
-#     output  = []
-
-#     output.append("=" * 50)
-#     output.append("  NEUTRAL SUMMARY")
-#     if topic:
-#         output.append(f"  Topic: {topic}")
-#     output.append("=" * 50)
-#     output.append("")
-#     output.append(neutral_summary.strip())
-#     output.append("")
-
-#     if common_themes:
-#         output.append(divider)
-#         output.append("  KEY THEMES")
-#         output.append(divider)
-#         for theme in common_themes[:6]:
-#             output.append(f"  • {theme}")
-#         output.append("")
-
-#     if perspectives:
-#         output.append(divider)
-#         output.append("  PERSPECTIVES DETECTED")
-#         output.append(divider)
-#         for item in perspectives[:8]:
-#             source      = item.get("source", "Unknown")
-#             perspective = item.get("perspective", "General")
-#             title       = item.get("title", "")
-#             output.append(f"  [{perspective}] {source}")
-#             if title:
-#                 output.append(f"    └─ {title}")
-#         output.append(f"\n  Perspective diversity score: {perspective_diversity} unique viewpoint(s)")
-#         output.append(f"  Similarity method used: {similarity_method}")
-#         output.append("")
-
-#     output.append(divider)
-#     output.append("  SOURCE CONTRIBUTIONS")
-#     output.append(divider)
-#     for item in valid_summaries[:5]:
-#         source = item.get("source", "Unknown")
-#         score  = item.get("relevance_score", 0)
-#         url    = item.get("url", "")
-#         bar    = "█" * int(score * 10) + "░" * (10 - int(score * 10))
-#         output.append(f"  {source}")
-#         output.append(f"    Relevance: {bar} {score:.2f}")
-#         if url:
-#             output.append(f"    URL: {url}")
-#     output.append("")
-
-#     bias_msg = _bias_warning(perspectives)
-#     if bias_msg:
-#         output.append(divider)
-#         output.append(f"  ⚠  {bias_msg}")
-#         output.append("")
-
-#     output.append("=" * 50)
-#     return "\n".join(output)
-
 def _is_bad_summary_sentence(sentence: str) -> bool:
     s = sentence.strip()
     lower = s.lower()
@@ -407,26 +309,25 @@ def build_synthesis_paragraph(
     compressed_sentences = []
 
     for sentence in body_sentences:
-        # Remove repeated topic phrase
-        cleaned = re.sub(
-            rf"^{re.escape(topic)}\s*",
-            "",
-            sentence,
-            flags=re.IGNORECASE
-        ).strip()
+        cleaned = sentence.strip()
+
+        if topic:
+            cleaned = re.sub(
+                rf"\b{re.escape(topic)}\b",
+                "",
+                cleaned,
+                flags=re.IGNORECASE
+            ).strip()
+
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
 
         compressed_sentences.append(
             cleaned if cleaned.endswith(".") else cleaned + "."
         )
 
-    body = (
-        "Reports discuss political reactions to immigration levels, "
-        "electoral shifts, migration concerns, and broader public debate in Australia."
-    )
+    body = " ".join(compressed_sentences)
 
     if perspectives:
-        perspective_text = ", ".join(sorted(set(perspectives)))
-
         closing = (
             "Together, these sources provide broader context and issue coverage "
             "than a single outlet alone."
