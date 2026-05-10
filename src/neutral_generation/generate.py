@@ -421,7 +421,8 @@ def generate_multi_source_synthesis(
             topic_overlap = len(topic_words.intersection(sentence_words))
 
             # Skip weakly related sentences
-            if topic_words and topic_overlap == 0:
+            required_overlap = max(1, min(2, len(topic_words) // 2))
+            if topic_words and topic_overlap < required_overlap:
                 continue
 
             score = (
