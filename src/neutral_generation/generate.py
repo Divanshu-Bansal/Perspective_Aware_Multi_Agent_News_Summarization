@@ -35,67 +35,69 @@ def _clean_sentence(sentence: str) -> str:
     return sentence.strip()
 
 
-def _extract_best_sentences(summaries: list[dict], topic: str, max_sentences: int = 4) -> str:
-    """
-    Extracts high-quality sentences from summaries to form a neutral summary.
-    Ranks by topic relevance + article relevance score.
-    """
-    topic_words = set(w.lower() for w in topic.split() if len(w) > 2)
-    sorted_summaries = sorted(summaries, key=lambda x: x.get("relevance_score", 0), reverse=True)
-    collected_sentences = []
-    seen_content = set()
+##TODO
 
-    for item in sorted_summaries[:5]:
-        summary = (item.get("summary") or "").strip()
-        if not summary:
-            continue
-        raw_sentences = re.split(r'(?<=[.!?])\s+', summary)
-        for sentence in raw_sentences:
-            sentence = _clean_sentence(sentence)
-            if len(sentence.split()) < 6 or len(sentence.split()) > 60:
-                continue
-            if re.search(r'\[\+\d+', sentence):
-                continue
-            if sentence.count('→') > 0 or sentence.count('└─') > 0:
-                continue
-            fingerprint = " ".join(sentence.lower().split()[:6])
-            if fingerprint in seen_content:
-                continue
-            seen_content.add(fingerprint)
-            sentence_words = set(sentence.lower().split())
-            topic_overlap = len(sentence_words.intersection(topic_words))
-            collected_sentences.append({
-                "text":          sentence,
-                "topic_overlap": topic_overlap,
-                "relevance":     item.get("relevance_score", 0),
-            })
+# def _extract_best_sentences(summaries: list[dict], topic: str, max_sentences: int = 4) -> str:
+#     """
+#     Extracts high-quality sentences from summaries to form a neutral summary.
+#     Ranks by topic relevance + article relevance score.
+#     """
+#     topic_words = set(w.lower() for w in topic.split() if len(w) > 2)
+#     sorted_summaries = sorted(summaries, key=lambda x: x.get("relevance_score", 0), reverse=True)
+#     collected_sentences = []
+#     seen_content = set()
 
-    if not collected_sentences:
-        return ""
-    collected_sentences.sort(key=lambda x: (x["topic_overlap"], x["relevance"]), reverse=True)
-    best = collected_sentences[:max_sentences]
-    best.sort(key=lambda x: x["relevance"], reverse=True)
-    return " ".join(s["text"] for s in best)
+#     for item in sorted_summaries[:5]:
+#         summary = (item.get("summary") or "").strip()
+#         if not summary:
+#             continue
+#         raw_sentences = re.split(r'(?<=[.!?])\s+', summary)
+#         for sentence in raw_sentences:
+#             sentence = _clean_sentence(sentence)
+#             if len(sentence.split()) < 6 or len(sentence.split()) > 60:
+#                 continue
+#             if re.search(r'\[\+\d+', sentence):
+#                 continue
+#             if sentence.count('→') > 0 or sentence.count('└─') > 0:
+#                 continue
+#             fingerprint = " ".join(sentence.lower().split()[:6])
+#             if fingerprint in seen_content:
+#                 continue
+#             seen_content.add(fingerprint)
+#             sentence_words = set(sentence.lower().split())
+#             topic_overlap = len(sentence_words.intersection(topic_words))
+#             collected_sentences.append({
+#                 "text":          sentence,
+#                 "topic_overlap": topic_overlap,
+#                 "relevance":     item.get("relevance_score", 0),
+#             })
+
+#     if not collected_sentences:
+#         return ""
+#     collected_sentences.sort(key=lambda x: (x["topic_overlap"], x["relevance"]), reverse=True)
+#     best = collected_sentences[:max_sentences]
+#     best.sort(key=lambda x: x["relevance"], reverse=True)
+#     return " ".join(s["text"] for s in best)
 
 
-def _bias_warning(perspectives: list[dict]) -> str | None:
-    """
-    Detects if news coverage is heavily biased toward a single perspective (>=80%, >=3 sources).
-    """
-    if not perspectives:
-        return None
-    counts = {}
-    for p in perspectives:
-        ptype = p.get("perspective", "General")
-        counts[ptype] = counts.get(ptype, 0) + 1
-    total = len(perspectives)
-    for ptype, count in counts.items():
-        if count / total >= 0.80 and total >= 3:
-            return (
-                f"Coverage bias detected: {count}/{total} sources share a "
-                f"{ptype} perspective. Consider searching for more diverse sources."
-            )
-    return None
+# def _bias_warning(perspectives: list[dict]) -> str | None:
+#     """
+#     Detects if news coverage is heavily biased toward a single perspective (>=80%, >=3 sources).
+#     """
+#     if not perspectives:
+#         return None
+#     counts = {}
+#     for p in perspectives:
+#         ptype = p.get("perspective", "General")
+#         counts[ptype] = counts.get(ptype, 0) + 1
+#     total = len(perspectives)
+#     for ptype, count in counts.items():
+#         if count / total >= 0.80 and total >= 3:
+#             return (
+#                 f"Coverage bias detected: {count}/{total} sources share a "
+#                 f"{ptype} perspective. Consider searching for more diverse sources."
+#             )
+#     return None
 
 
 # ─────────────────────────────────────────────────────────────
@@ -370,6 +372,8 @@ def generate_multi_source_synthesis(
     if not valid:
         return "No valid source summaries available."
 
+    topic_words = set(w.lower() for w in topic.split() if len(w) > 2)
+
     # Attach perspective information
     perspective_lookup = {}
     if comparison_result:
@@ -378,7 +382,6 @@ def generate_multi_source_synthesis(
 
     selected = []
     seen_sources = set()
-    seen_perspectives = set()
     seen_fingerprints = set()
 
     ranked = sorted(
@@ -413,15 +416,25 @@ def generate_multi_source_synthesis(
             if fingerprint in seen_fingerprints:
                 continue
 
+            sentence_words = set(re.findall(r"\b\w+\b", sentence.lower()))
+
+            topic_overlap = len(topic_words.intersection(sentence_words))
+
+            # Skip weakly related sentences
+            if topic_words and topic_overlap == 0:
+                continue
+
             score = (
-                len(words) * 0.1
+                topic_overlap * 2.0
                 + item.get("relevance_score", 0)
+                + len(words) * 0.05
             )
 
             candidate_sentences.append({
                 "text": sentence,
                 "score": score,
                 "fingerprint": fingerprint,
+                "topic_overlap": topic_overlap,
             })
 
         if not candidate_sentences:
@@ -436,11 +449,10 @@ def generate_multi_source_synthesis(
             "text": best_sentence["text"],
             "source": source,
             "perspective": perspective,
-            "score": item.get("relevance_score", 0),
+            "score": best_sentence["score"],
         })
 
         seen_sources.add(source)
-        seen_perspectives.add(perspective)
         seen_fingerprints.add(best_sentence["fingerprint"])
 
         if len(selected) >= max_sentences:
