@@ -428,8 +428,8 @@ def build_synthesis_paragraph(
         perspective_text = ", ".join(sorted(set(perspectives)))
 
         closing = (
-            f"Together, the coverage combines {perspective_text} viewpoints, "
-            "providing broader perspective coverage than a single outlet alone."
+            "Together, these sources provide broader context and issue coverage "
+            "than a single outlet alone."
         )
     else:
         closing = (
