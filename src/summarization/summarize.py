@@ -178,6 +178,21 @@ def summarize_article(text: str) -> str:
 
             summary_text = result[0]["summary_text"]
 
+            # Remove title-like headline summaries
+            summary_text = summary_text.strip()
+
+            # Reject summaries that look like headlines
+            if (
+                len(summary_text.split()) < 18
+                or summary_text.count(":") > 0
+                or "?" in summary_text
+            ):
+                continue
+
+            summary_text = finish_at_sentence_boundary(summary_text)
+
+            summaries.append(summary_text)
+
             # Remove accidental title duplication
             if len(summary_text.split()) < 18 and "?" in summary_text:
                 continue
