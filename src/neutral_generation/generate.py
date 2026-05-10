@@ -304,6 +304,10 @@ def _is_bad_summary_sentence(sentence: str) -> bool:
     s = sentence.strip()
     lower = s.lower()
 
+    # Reject title-style lines
+    if len(s.split()) < 15 and ("?" in s or (":" not in s and s.istitle())):
+        return True
+
     bad_patterns = [
         r"\bvmpl\b",
         r"\bani\b",
@@ -347,35 +351,39 @@ def build_synthesis_paragraph(
     topic: str = "",
     perspectives: list[str] | None = None,
 ) -> str:
-    """
-    Turns selected source sentences into a smoother synthesis-style paragraph.
-    This is template-based, so it avoids needing another LLM call.
-    """
+
     if not selected_sentences:
         return ""
 
-    sentence_texts = [item["text"] for item in selected_sentences]
     perspectives = perspectives or []
 
     opening = (
-        f"Multiple sources frame {topic} as a developing issue with political, social, "
-        f"and economic implications."
+        f"Multiple independent sources frame {topic} as a broader political, social, "
+        f"and economic issue."
         if topic else
-        "Multiple sources frame this as a developing issue with political, social, "
-        "and economic implications."
+        "Multiple independent sources frame this as a broader political, social, "
+        "and economic issue."
     )
 
-    body = " ".join(sentence_texts[:3])
+    # Use top 2–3 strongest sentences only
+    body_sentences = [
+        item["text"]
+        for item in selected_sentences[:3]
+    ]
+
+    body = " ".join(body_sentences)
 
     if perspectives:
         perspective_text = ", ".join(sorted(set(perspectives)))
+
         closing = (
-            f"Overall, the coverage combines {perspective_text} viewpoints, giving a broader "
-            "picture than a single outlet alone."
+            f"Together, the coverage combines {perspective_text} viewpoints, "
+            "providing broader perspective coverage than a single outlet alone."
         )
     else:
         closing = (
-            "Overall, the combined coverage gives a broader picture than a single outlet alone."
+            "Together, the coverage provides broader perspective coverage than "
+            "a single outlet alone."
         )
 
     return _safe_finish(f"{opening} {body} {closing}")
@@ -427,30 +435,44 @@ def generate_multi_source_synthesis(
             continue
 
         sentences = re.split(r"(?<=[.!?])\s+", item.get("summary", ""))
-        clean_sentences = []
+        candidate_sentences = []
 
         for sentence in sentences:
             sentence = _clean_sentence(sentence)
             words = sentence.split()
 
-            if len(words) > 45:
+            if len(words) < 12 or len(words) > 45:
                 continue
 
             if _is_bad_summary_sentence(sentence):
                 continue
 
             fingerprint = " ".join(sentence.lower().split()[:8])
+
             if fingerprint in seen_fingerprints:
                 continue
 
-            clean_sentences.append(sentence)
+            score = (
+                len(words) * 0.1
+                + item.get("relevance_score", 0)
+            )
 
-        if not clean_sentences:
+            candidate_sentences.append({
+                "text": sentence,
+                "score": score,
+                "fingerprint": fingerprint,
+            })
+
+        if not candidate_sentences:
             continue
+
+        candidate_sentences.sort(key=lambda x: x["score"], reverse=True)
+
+        best_sentence = candidate_sentences[0]
 
         # Prefer the first strong sentence from each source
         selected.append({
-            "text": clean_sentences[0],
+            "text": best_sentence["text"],
             "source": source,
             "perspective": perspective,
             "score": item.get("relevance_score", 0),
@@ -458,7 +480,7 @@ def generate_multi_source_synthesis(
 
         seen_sources.add(source)
         seen_perspectives.add(perspective)
-        seen_fingerprints.add(" ".join(clean_sentences[0].lower().split()[:8]))
+        seen_fingerprints.add(best_sentence["fingerprint"])
 
         if len(selected) >= max_sentences:
             break
