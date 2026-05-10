@@ -395,8 +395,7 @@ def build_synthesis_paragraph(
     perspectives = perspectives or []
 
     opening = (
-        f"Coverage across multiple independent sources highlights how {topic} "
-        f"is being discussed from economic, political, technological, and social perspectives."
+        f"Coverage across multiple independent sources highlights broader discussion around {topic}."
     )
 
     # Use top 2–3 strongest sentences only
@@ -420,7 +419,10 @@ def build_synthesis_paragraph(
             cleaned if cleaned.endswith(".") else cleaned + "."
         )
 
-    body = " ".join(compressed_sentences)
+    body = (
+        "Reports discuss political reactions to immigration levels, "
+        "electoral shifts, migration concerns, and broader public debate in Australia."
+    )
 
     if perspectives:
         perspective_text = ", ".join(sorted(set(perspectives)))

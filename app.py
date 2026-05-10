@@ -528,7 +528,7 @@ def run_pipeline_streaming(topic: str, page_size: int, max_articles: int):
 
     stat1, stat2, stat3 = st.columns(3)
     stat1.metric("Source coverage", "1 source", f"vs {len(source_summaries)} sources")
-    stat2.metric("Perspective coverage", "1 perspective", f"vs {diversity} viewpoints")
+    stat2.metric("Perspective coverage", "1 dominant perspective", f"{diversity} additional viewpoints")
     stat3.metric("Coverage gap", f"{missing_count} missing", "in biased version")
 
     st.markdown("### Comparison view")
